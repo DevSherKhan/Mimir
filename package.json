@@ -1,0 +1,33 @@
+{
+  "name": "mimir",
+  "version": "0.1.0",
+  "description": "Local-first AI chat memory index exposed through a CLI and MCP server.",
+  "type": "module",
+  "bin": {
+    "mimir": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.0",
+    "better-sqlite3": "^11.10.0",
+    "commander": "^12.1.0",
+    "openai": "^5.8.2",
+    "sqlite-vec": "^0.1.6",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.19.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

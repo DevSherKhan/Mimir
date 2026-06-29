@@ -1,0 +1,2 @@
+{"role":"user","content":"We discussed building Mimir as a local-first memory index with deterministic development embeddings and secure redaction.","timestamp":"2026-06-28T00:00:00.000Z"}
+{"role":"assistant","content":"The MVP should initialize a private SQLite database, chunk chat messages, store per-chunk embeddings, and expose search through a CLI and MCP tool.","timestamp":"2026-06-28T00:01:00.000Z"}
