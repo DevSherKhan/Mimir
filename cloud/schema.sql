@@ -2,14 +2,14 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   email TEXT UNIQUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS memory_chunks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   source_tool TEXT NOT NULL,
   workspace_path TEXT,
   session_id TEXT NOT NULL,
@@ -22,6 +22,24 @@ CREATE TABLE IF NOT EXISTS memory_chunks (
   embedding vector(1536) NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, content_hash)
+);
+
+CREATE TABLE IF NOT EXISTS device_auth_codes (
+  device_code TEXT PRIMARY KEY,
+  user_code TEXT NOT NULL UNIQUE,
+  approved_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  approved_at TIMESTAMPTZ,
+  access_token_hash TEXT,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS access_tokens (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_memory_chunks_user_source

@@ -163,6 +163,10 @@ export function getLocalStats(db: Database.Database, cloudUrl: string): LocalSta
 }
 
 export function listPendingUploadChunks(db: Database.Database, cloudUrl: string, limit: number): MemoryChunkUpload[] {
+  return listUploadChunks(db, cloudUrl, limit, false);
+}
+
+export function listUploadChunks(db: Database.Database, cloudUrl: string, limit: number, includeUploaded: boolean): MemoryChunkUpload[] {
   const rows = db.prepare(`
     SELECT
       m.source_tool AS sourceTool,
@@ -180,10 +184,10 @@ export function listPendingUploadChunks(db: Database.Database, cloudUrl: string,
     LEFT JOIN upload_records u
       ON u.cloud_url = ?
      AND u.content_hash = c.content_hash
-    WHERE u.content_hash IS NULL
+    WHERE (? = 1 OR u.content_hash IS NULL)
     ORDER BY m.timestamp ASC, c.chunk_index ASC
     LIMIT ?
-  `).all(cloudUrl, limit) as Array<Omit<MemoryChunkUpload, "embedding"> & { embeddingJson: string }>;
+  `).all(cloudUrl, includeUploaded ? 1 : 0, limit) as Array<Omit<MemoryChunkUpload, "embedding"> & { embeddingJson: string }>;
 
   return rows.map((row) => ({
     sourceTool: row.sourceTool,

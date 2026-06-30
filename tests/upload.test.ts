@@ -70,6 +70,7 @@ describe("cloud upload queue", () => {
         limit: 10,
         batchSize: 10,
         dryRun: true,
+        force: false,
       })).resolves.toEqual({
         cloudUrl: "https://mimir.example.com",
         selected: 1,
@@ -81,6 +82,20 @@ describe("cloud upload queue", () => {
       expect(getLocalStats(database.db, "https://mimir.example.com")).toMatchObject({
         uploadedChunks: 1,
         pendingUploads: 0,
+      });
+
+      await expect(uploadPendingChunks({
+        homeDir,
+        db: database.db,
+        limit: 10,
+        batchSize: 10,
+        dryRun: true,
+        force: true,
+      })).resolves.toEqual({
+        cloudUrl: "https://mimir.example.com",
+        selected: 1,
+        uploaded: 0,
+        dryRun: true,
       });
     } finally {
       database.close();

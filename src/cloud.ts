@@ -19,10 +19,16 @@ export interface UploadBatchResponse {
   acceptedContentHashes?: string[];
 }
 
+export interface MemoryCountResponse {
+  userId: string;
+  count: number;
+}
+
 export interface CloudClient {
   startDeviceLogin(): Promise<DeviceStartResponse>;
   completeDeviceLogin(deviceCode: string): Promise<DeviceCompleteResponse | null>;
   uploadMemoryBatch(chunks: MemoryChunkUpload[], accessToken: string): Promise<UploadBatchResponse>;
+  getMemoryCount(accessToken: string): Promise<MemoryCountResponse>;
 }
 
 export function createCloudClient(cloudUrl: string): CloudClient {
@@ -55,6 +61,15 @@ export function createCloudClient(cloudUrl: string): CloudClient {
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ chunks }),
+      });
+    },
+
+    async getMemoryCount(accessToken: string) {
+      return requestJson<MemoryCountResponse>(`${cloudUrl}/v1/memories/count`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       });
     },
   };

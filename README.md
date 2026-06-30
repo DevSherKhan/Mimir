@@ -83,16 +83,18 @@ npm run build
 
 Cloud mode is opt-in. The local agent still does all local file reading, redaction, chunking, and embedding. Mimir Cloud receives sanitized chunk records only; it never reads Claude, Codex, Cursor, or ChatGPT files directly from a user's machine.
 
-Login with a bearer token during early development:
+Login through the browser:
 
 ```bash
-mimir login --cloud-url https://api.mimir.cloud --token YOUR_TOKEN
+mimir login --cloud-url https://api.mimir.cloud
 ```
 
-For localhost development:
+The CLI prints a URL and code. Open the URL, approve the login, and the CLI stores the token automatically.
+
+For localhost development, use the same browser flow:
 
 ```bash
-mimir login --cloud-url http://localhost:3000 --token dev-token
+mimir login --cloud-url http://localhost:3000
 ```
 
 Check local database and upload status:
@@ -120,6 +122,7 @@ Upload behavior:
 - Stored credentials live at `~/.mimir/cloud-auth.json` with private permissions where supported.
 - Uploads default to the cloud URL used during login.
 - `--cloud-url` on `mimir upload` intentionally overrides the login URL.
+- `--force` re-sends chunks even if they were already marked uploaded locally.
 - Already uploaded chunks are tracked locally by cloud URL and content hash.
 - Raw external chat databases are never modified and never uploaded wholesale.
 
@@ -189,7 +192,60 @@ The Phase 2 cloud upload contract is represented by:
 - `POST /v1/auth/device/start`
 - `POST /v1/auth/device/complete`
 - `POST /v1/memories/batch`
+- `GET /v1/memories/count`
 - `cloud/schema.sql` for the initial Postgres + pgvector schema.
+
+## Railway Cloud API
+
+The hosted API uses Railway Postgres through `DATABASE_URL`. Set these variables on the Railway API service:
+
+```env
+DATABASE_URL=${{ Postgres.DATABASE_URL }}
+```
+
+Railway should run:
+
+```bash
+npm run build
+npm start
+```
+
+Check the deployed API:
+
+```bash
+curl https://YOUR-RAILWAY-APP.up.railway.app/health
+```
+
+Upload from your laptop:
+
+```bash
+mimir login --cloud-url https://YOUR-RAILWAY-APP.up.railway.app
+mimir sync --source all
+mimir upload --dry-run
+mimir upload
+```
+
+If you uploaded to an older dev server that accepted chunks before Postgres storage existed, re-send them once:
+
+```bash
+mimir upload --force --dry-run
+mimir upload --force
+```
+
+Confirm the cloud stored memories:
+
+```bash
+mimir status
+```
+
+For developer debugging only, the count endpoint accepts the stored bearer token from `~/.mimir/cloud-auth.json`:
+
+```bash
+curl -H "Authorization: Bearer YOUR_STORED_TOKEN" \
+  https://YOUR-RAILWAY-APP.up.railway.app/v1/memories/count
+```
+
+The count endpoint returns the number of stored chunks for the authenticated user.
 
 ## Troubleshooting MCP Startup
 

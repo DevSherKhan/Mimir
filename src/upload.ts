@@ -1,7 +1,7 @@
 import type BetterSqlite3 from "better-sqlite3";
 import { readCredentials, isExpired } from "./auth.js";
 import { createCloudClient } from "./cloud.js";
-import { listPendingUploadChunks, markChunksUploaded } from "./db.js";
+import { listUploadChunks, markChunksUploaded } from "./db.js";
 
 export interface UploadOptions {
   homeDir: string;
@@ -10,6 +10,7 @@ export interface UploadOptions {
   limit: number;
   batchSize: number;
   dryRun: boolean;
+  force: boolean;
 }
 
 export interface UploadResult {
@@ -30,7 +31,7 @@ export async function uploadPendingChunks(options: UploadOptions): Promise<Uploa
   }
 
   const cloudUrl = options.cloudUrl ?? credentials.cloudUrl;
-  const chunks = listPendingUploadChunks(options.db, cloudUrl, options.limit);
+  const chunks = listUploadChunks(options.db, cloudUrl, options.limit, options.force);
   if (options.dryRun) {
     return {
       cloudUrl,

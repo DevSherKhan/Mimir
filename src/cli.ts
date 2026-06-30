@@ -33,6 +33,7 @@ interface UploadCommandOptions {
   limit: string;
   batchSize: string;
   dryRun?: boolean;
+  force?: boolean;
   cloudUrl?: string;
 }
 
@@ -110,6 +111,7 @@ program
           limit: 500,
           batchSize: 100,
           dryRun: false,
+          force: false,
         });
         console.log(`Uploaded chunks: ${uploadResult.uploaded}/${uploadResult.selected}`);
       }
@@ -213,7 +215,6 @@ program
     const intervalMs = Math.max(1, start.interval ?? 5) * 1000;
     const expiresAt = Date.now() + Math.max(60, start.expiresIn ?? 600) * 1000;
     while (Date.now() < expiresAt) {
-      await sleep(intervalMs);
       const completed = await client.completeDeviceLogin(start.deviceCode);
       if (completed) {
         writeCredentials(config.homeDir, {
@@ -226,6 +227,7 @@ program
         console.log(`Logged in to ${config.cloudUrl}`);
         return;
       }
+      await sleep(intervalMs);
     }
 
     throw new Error("Device login expired before completion.");
@@ -249,6 +251,7 @@ program
   .action(async (options: { json?: boolean }) => {
     const { getMimirConfig } = await import("./config.js");
     const { readCredentials, isExpired } = await import("./auth.js");
+    const { createCloudClient } = await import("./cloud.js");
     const { getLocalStats, openMimirDatabase } = await import("./db.js");
     const config = getMimirConfig();
     const credentials = readCredentials(config.homeDir);
@@ -256,12 +259,17 @@ program
 
     try {
       const stats = getLocalStats(database.db, credentials?.cloudUrl ?? config.cloudUrl);
+      const loggedIn = Boolean(credentials && !isExpired(credentials));
+      const cloud = loggedIn && credentials
+        ? await readCloudStatus(createCloudClient(credentials.cloudUrl), credentials.accessToken)
+        : undefined;
       const status = {
         homeDir: config.homeDir,
         dbPath: config.dbPath,
         cloudUrl: credentials?.cloudUrl ?? config.cloudUrl,
-        loggedIn: Boolean(credentials && !isExpired(credentials)),
+        loggedIn,
         userId: credentials?.userId,
+        cloud,
         stats,
       };
 
@@ -276,6 +284,11 @@ program
       console.log(`Logged in: ${status.loggedIn ? "yes" : "no"}`);
       if (status.userId) {
         console.log(`User: ${status.userId}`);
+      }
+      if (status.cloud?.ok) {
+        console.log(`Cloud chunks: ${status.cloud.count}`);
+      } else if (status.cloud) {
+        console.log(`Cloud status: ${status.cloud.error}`);
       }
       console.log(`Messages: ${status.stats.messages}`);
       console.log(`Chunks: ${status.stats.chunks}`);
@@ -293,6 +306,7 @@ program
   .option("--batch-size <number>", "Chunks per request", "100")
   .option("--cloud-url <url>", "Override Mimir Cloud API URL")
   .option("--dry-run", "Show how many chunks would upload without sending data")
+  .option("--force", "Re-upload chunks even if they were already marked uploaded locally")
   .action(async (options: UploadCommandOptions) => {
     const { getMimirConfig } = await import("./config.js");
     const { openMimirDatabase } = await import("./db.js");
@@ -311,12 +325,13 @@ program
         limit: parseLimit(options.limit, 1, 10_000),
         batchSize: parseLimit(options.batchSize, 1, 500),
         dryRun: Boolean(options.dryRun),
+        force: Boolean(options.force),
       });
 
       if (result.dryRun) {
-        console.log(`Would upload ${result.selected} chunks to ${result.cloudUrl}`);
+        console.log(`Would upload ${result.selected} chunks to ${result.cloudUrl}${options.force ? " (force)" : ""}`);
       } else {
-        console.log(`Uploaded ${result.uploaded}/${result.selected} chunks to ${result.cloudUrl}`);
+        console.log(`Uploaded ${result.uploaded}/${result.selected} chunks to ${result.cloudUrl}${options.force ? " (force)" : ""}`);
       }
     } finally {
       database.close();
@@ -375,4 +390,14 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+async function readCloudStatus(client: { getMemoryCount(accessToken: string): Promise<{ count: number }> }, accessToken: string): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  try {
+    const result = await client.getMemoryCount(accessToken);
+    return { ok: true, count: result.count };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: message };
+  }
 }
