@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { readCursorMessages } from "../src/ingest/cursor.js";
+import { readCursorMessages } from "../src/local/ingest/cursor.js";
 
 describe("readCursorMessages", () => {
   it("reads likely chat text from Cursor state databases read-only", () => {

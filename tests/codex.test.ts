@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { readCodexMessages } from "../src/ingest/codex.js";
+import { readCodexMessages } from "../src/local/ingest/codex.js";
 
 describe("readCodexMessages", () => {
   it("reads Codex user and agent events while skipping internal context", () => {

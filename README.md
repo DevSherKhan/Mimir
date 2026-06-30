@@ -71,6 +71,27 @@ npm run build
 - `OPENAI_API_KEY`: required only when `MIMIR_EMBEDDING_PROVIDER=openai`.
 - `MIMIR_CLOUD_URL`: hosted Mimir API URL. Defaults to `https://api.mimir.cloud`. HTTPS is required except for localhost development.
 
+## Project Layout
+
+- `src/cli.ts`: tiny package/bin wrapper for the local CLI.
+- `src/server.ts`: tiny Railway-compatible wrapper for the hosted server.
+- `src/config/`: shared runtime configuration.
+- `src/core/`: shared domain logic: chunking, hashing, search formatting, vectors, embeddings, and redaction.
+- `src/local/cli/`: local CLI commands.
+- `src/local/db/`: local SQLite storage and local vector search.
+- `src/local/ingest/`: source parsers for Claude Code, Codex, Cursor, files, and fixtures.
+- `src/local/mcp/`: local stdio MCP server.
+- `src/cloud/client/`: local client code for credentials, uploads, and hosted API calls.
+- `src/cloud/dto/`: zod-backed API and MCP data transfer objects.
+- `src/cloud/db/`: hosted Postgres connection, migrator, repositories, and DB types.
+- `cloud/migrations/`: versioned Postgres migrations for hosted Mimir Cloud.
+- `src/server/`: Fastify hosted MCP/API app.
+- `src/server/routes/`: HTTP route definitions.
+- `src/server/controllers/`: request/response controllers.
+- `src/server/services/`: hosted business logic such as cloud memory search.
+- `src/server/views/`: login approval HTML.
+- `src/server/utils/`: small server-side guards/helpers.
+
 ## Ingestion Sources
 
 - `mimir sync --source claude`: reads Claude Code JSONL transcripts.
@@ -90,6 +111,10 @@ mimir login --cloud-url https://api.mimir.cloud
 ```
 
 The CLI prints a URL and code. Open the URL, approve the login, and the CLI stores the token automatically.
+
+If credentials already exist, `mimir login` refuses to overwrite them. Run `mimir logout` first, then log in again.
+
+Mimir also stores a stable local install identity at `~/.mimir/install.json`. This is separate from the login token, so logging out removes credentials but keeps the install identity. Logging in again from the same machine creates a new token for the same cloud user instead of creating a new user.
 
 For localhost development, use the same browser flow:
 
@@ -156,7 +181,7 @@ Output includes matched snippets with source, role, session id, workspace path, 
 
 ## MCP Auth Model
 
-Mimir currently supports a local stdio MCP server:
+Mimir supports a local stdio MCP server:
 
 ```bash
 mimir mcp
@@ -185,7 +210,19 @@ command = "mimir"
 args = ["mcp"]
 ```
 
-Do not expose `mimir mcp` through a public HTTP wrapper. Hosted MCP should use the cloud architecture: HTTPS, bearer/OAuth auth, tenant isolation, and a search-only API surface.
+Hosted MCP is available at:
+
+```text
+https://YOUR-RAILWAY-APP.up.railway.app/mcp
+```
+
+Hosted MCP requires a bearer token from `mimir login` and exposes only:
+
+```text
+search_historical_chats
+```
+
+The hosted MCP surface is search-only. It does not expose sync, reset, local file reads, or ingestion controls.
 
 The Phase 2 cloud upload contract is represented by:
 
@@ -193,7 +230,9 @@ The Phase 2 cloud upload contract is represented by:
 - `POST /v1/auth/device/complete`
 - `POST /v1/memories/batch`
 - `GET /v1/memories/count`
-- `cloud/schema.sql` for the initial Postgres + pgvector schema.
+- `GET /v1/memories/search`
+- `POST /mcp`
+- `cloud/migrations/001_init.sql` for the initial Postgres + pgvector schema.
 
 ## Railway Cloud API
 
@@ -246,6 +285,19 @@ curl -H "Authorization: Bearer YOUR_STORED_TOKEN" \
 ```
 
 The count endpoint returns the number of stored chunks for the authenticated user.
+
+Search cloud memory:
+
+```bash
+curl -H "Authorization: Bearer YOUR_STORED_TOKEN" \
+  "https://YOUR-RAILWAY-APP.up.railway.app/v1/memories/search?query=database%20migration&limit=5"
+```
+
+Hosted MCP endpoint:
+
+```text
+https://YOUR-RAILWAY-APP.up.railway.app/mcp
+```
 
 ## Troubleshooting MCP Startup
 

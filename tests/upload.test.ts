@@ -2,15 +2,15 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { writeCredentials } from "../src/auth.js";
+import { writeCredentials } from "../src/cloud/client/credentials.js";
 import {
   getLocalStats,
   insertMessageWithChunks,
   listPendingUploadChunks,
   markChunksUploaded,
   openMimirDatabase,
-} from "../src/db.js";
-import { uploadPendingChunks } from "../src/upload.js";
+} from "../src/local/db/sqlite.js";
+import { uploadPendingChunks } from "../src/cloud/client/upload.js";
 
 describe("cloud upload queue", () => {
   it("lists pending sanitized chunks and supports dry-run upload", async () => {

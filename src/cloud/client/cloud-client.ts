@@ -1,4 +1,4 @@
-import type { MemoryChunkUpload } from "./db.js";
+import type { MemoryChunkUpload } from "../../local/db/sqlite.js";
 
 export interface DeviceStartResponse {
   deviceCode: string;
@@ -25,7 +25,7 @@ export interface MemoryCountResponse {
 }
 
 export interface CloudClient {
-  startDeviceLogin(): Promise<DeviceStartResponse>;
+  startDeviceLogin(installId: string): Promise<DeviceStartResponse>;
   completeDeviceLogin(deviceCode: string): Promise<DeviceCompleteResponse | null>;
   uploadMemoryBatch(chunks: MemoryChunkUpload[], accessToken: string): Promise<UploadBatchResponse>;
   getMemoryCount(accessToken: string): Promise<MemoryCountResponse>;
@@ -33,10 +33,10 @@ export interface CloudClient {
 
 export function createCloudClient(cloudUrl: string): CloudClient {
   return {
-    async startDeviceLogin() {
+    async startDeviceLogin(installId: string) {
       return requestJson<DeviceStartResponse>(`${cloudUrl}/v1/auth/device/start`, {
         method: "POST",
-        body: JSON.stringify({ client: "mimir-cli" }),
+        body: JSON.stringify({ client: "mimir-cli", installId }),
       });
     },
 

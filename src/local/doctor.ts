@@ -1,6 +1,6 @@
 import { accessSync, constants, statSync } from "node:fs";
 import { createRequire } from "node:module";
-import { getMimirConfig } from "./config.js";
+import { getMimirConfig } from "../config/index.js";
 
 export interface DoctorCheck {
   name: string;

@@ -17,9 +17,11 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@fastify/formbody": "^8.0.2",
     "@modelcontextprotocol/sdk": "^1.13.0",
     "better-sqlite3": "^11.10.0",
     "commander": "^12.1.0",
+    "fastify": "^5.9.0",
     "openai": "^5.8.2",
     "pg": "^8.22.0",
     "sqlite-vec": "^0.1.6",

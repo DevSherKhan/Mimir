@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { readClaudeMessages } from "../src/ingest/claude.js";
+import { readClaudeMessages } from "../src/local/ingest/claude.js";
 
 describe("readClaudeMessages", () => {
   it("reads Claude JSONL message content", () => {

@@ -1,11 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { getMimirConfig } from "./config.js";
-import { openMimirDatabase, searchChunks } from "./db.js";
-import { createEmbeddingProvider } from "./embeddings/provider.js";
-import { redactSecrets } from "./security/redact.js";
-import { formatSearchResponse, normalizeSourceTool, parseOptionalTimestamp } from "./search.js";
+import { getMimirConfig } from "../../config/index.js";
+import { openMimirDatabase, searchChunks } from "../db/sqlite.js";
+import { createEmbeddingProvider } from "../../core/embeddings/provider.js";
+import { redactSecrets } from "../../core/security/redact.js";
+import { formatSearchResponse, normalizeSourceTool, parseOptionalTimestamp } from "../../core/search.js";
 
 export async function runMcpServer(): Promise<void> {
   const config = getMimirConfig();

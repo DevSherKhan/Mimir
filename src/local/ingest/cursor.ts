@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
 import { platform } from "node:os";
-import { expandHome } from "../config.js";
+import { expandHome } from "../../config/index.js";
 import { listFilesRecursive } from "./files.js";
 import type { RawMessage } from "./types.js";
 

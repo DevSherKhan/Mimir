@@ -1,7 +1,7 @@
 import type BetterSqlite3 from "better-sqlite3";
-import { readCredentials, isExpired } from "./auth.js";
-import { createCloudClient } from "./cloud.js";
-import { listUploadChunks, markChunksUploaded } from "./db.js";
+import { readCredentials, isExpired } from "./credentials.js";
+import { createCloudClient } from "./cloud-client.js";
+import { listUploadChunks, markChunksUploaded } from "../../local/db/sqlite.js";
 
 export interface UploadOptions {
   homeDir: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatSearchResult, normalizeSourceTool, parseOptionalTimestamp } from "../src/search.js";
+import { formatSearchResult, normalizeSourceTool, parseOptionalTimestamp } from "../src/core/search.js";
 
 describe("search helpers", () => {
   it("normalizes source aliases", () => {

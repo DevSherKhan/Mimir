@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMimirConfig } from "../src/config.js";
+import { getMimirConfig } from "../src/config/index.js";
 
 describe("getMimirConfig", () => {
   it("defaults to dev embeddings", () => {

@@ -2,8 +2,8 @@ import Database from "better-sqlite3";
 import { createRequire } from "node:module";
 import { chmodSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { EMBEDDING_DIMENSIONS } from "./config.js";
-import { cosineDistance, parseVector, serializeVector } from "./vector.js";
+import { EMBEDDING_DIMENSIONS } from "../../config/index.js";
+import { cosineDistance, parseVector, serializeVector } from "../../core/vector.js";
 
 export interface StoredChunk {
   chunkId: string;

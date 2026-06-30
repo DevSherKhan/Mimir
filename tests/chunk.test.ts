@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chunkText } from "../src/chunk.js";
+import { chunkText } from "../src/core/chunk.js";
 
 describe("chunkText", () => {
   it("returns no chunks for empty text", () => {

@@ -7,6 +7,13 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS install_identities (
+  install_id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS memory_chunks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -27,9 +34,12 @@ CREATE TABLE IF NOT EXISTS memory_chunks (
 CREATE TABLE IF NOT EXISTS device_auth_codes (
   device_code TEXT PRIMARY KEY,
   user_code TEXT NOT NULL UNIQUE,
+  client_name TEXT,
+  install_id TEXT REFERENCES install_identities(install_id) ON DELETE SET NULL,
   approved_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   approved_at TIMESTAMPTZ,
   access_token_hash TEXT,
+  consumed_at TIMESTAMPTZ,
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

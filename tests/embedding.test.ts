@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { EMBEDDING_DIMENSIONS } from "../src/config.js";
-import { createEmbeddingProvider } from "../src/embeddings/provider.js";
+import { EMBEDDING_DIMENSIONS } from "../src/config/index.js";
+import { createEmbeddingProvider } from "../src/core/embeddings/provider.js";
 
 describe("dev embedding provider", () => {
   it("returns stable fixed-size vectors", async () => {

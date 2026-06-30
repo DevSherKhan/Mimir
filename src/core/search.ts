@@ -1,4 +1,4 @@
-import type { StoredChunk } from "./db.js";
+import type { StoredChunk } from "../local/db/sqlite.js";
 
 export type SourceTool = "claude-code" | "codex" | "cursor" | "fixture";
 

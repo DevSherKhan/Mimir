@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
-import { expandHome } from "../config.js";
+import { expandHome } from "../../config/index.js";
 import { listFilesRecursive } from "./files.js";
 import type { RawMessage } from "./types.js";
 

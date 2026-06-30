@@ -1,14 +1,14 @@
 import type BetterSqlite3 from "better-sqlite3";
-import { chunkText } from "./chunk.js";
-import type { EmbeddingProvider } from "./embeddings/provider.js";
-import { sha256 } from "./hash.js";
+import { chunkText } from "../core/chunk.js";
+import type { EmbeddingProvider } from "../core/embeddings/provider.js";
+import { sha256 } from "../core/hash.js";
 import { readClaudeMessages } from "./ingest/claude.js";
 import { readCodexMessages } from "./ingest/codex.js";
 import { readCursorMessages } from "./ingest/cursor.js";
 import { readFixtureMessages } from "./ingest/fixtures.js";
 import type { IngestOptions, RawMessage } from "./ingest/types.js";
-import { insertMessageWithChunks } from "./db.js";
-import { redactSecrets } from "./security/redact.js";
+import { insertMessageWithChunks } from "./db/sqlite.js";
+import { redactSecrets } from "../core/security/redact.js";
 
 export interface SyncResult {
   discovered: number;

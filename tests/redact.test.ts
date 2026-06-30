@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { redactSecrets } from "../src/security/redact.js";
+import { redactSecrets } from "../src/core/security/redact.js";
 
 describe("redactSecrets", () => {
   it("redacts common token and email patterns", () => {

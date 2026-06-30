@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { EMBEDDING_DIMENSIONS, type EmbeddingProviderName } from "../config.js";
+import { EMBEDDING_DIMENSIONS, type EmbeddingProviderName } from "../../config/index.js";
 
 export interface EmbeddingProvider {
   name: EmbeddingProviderName;
