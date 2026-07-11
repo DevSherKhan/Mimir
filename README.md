@@ -73,8 +73,7 @@ npm run build
 
 ## Project Layout
 
-- `src/cli.ts`: tiny package/bin wrapper for the local CLI.
-- `src/server.ts`: tiny Railway-compatible wrapper for the hosted server.
+- `src/local/cli/index.ts`: local CLI entrypoint and npm bin target.
 - `src/config/`: shared runtime configuration.
 - `src/core/`: shared domain logic: chunking, hashing, search formatting, vectors, embeddings, and redaction.
 - `src/local/cli/`: local CLI commands.
@@ -85,6 +84,7 @@ npm run build
 - `src/cloud/dto/`: zod-backed API and MCP data transfer objects.
 - `src/cloud/db/`: hosted Postgres connection, migrator, repositories, and DB types.
 - `cloud/migrations/`: versioned Postgres migrations for hosted Mimir Cloud.
+- `src/server/index.ts`: hosted server bootstrap and production entrypoint.
 - `src/server/`: Fastify hosted MCP/API app.
 - `src/server/routes/`: HTTP route definitions.
 - `src/server/controllers/`: request/response controllers.
@@ -129,11 +129,35 @@ mimir status
 mimir status --json
 ```
 
+Clear local indexed memory while keeping cloud login and install identity:
+
+```bash
+mimir reset-local
+```
+
+This deletes only:
+
+- `~/.mimir/vault.db`
+- `~/.mimir/vault.db-wal`
+- `~/.mimir/vault.db-shm`
+
+It preserves:
+
+- `~/.mimir/install.json`
+- `~/.mimir/cloud-auth.json`
+
 Upload pending chunks explicitly:
 
 ```bash
 mimir upload --dry-run
 mimir upload
+```
+
+Verify hosted API and MCP after deploy:
+
+```bash
+mimir cloud-smoke
+mimir cloud-smoke --query "database migration"
 ```
 
 Or sync and upload in one command:
@@ -145,6 +169,7 @@ mimir sync --source all --upload
 Upload behavior:
 
 - Stored credentials live at `~/.mimir/cloud-auth.json` with private permissions where supported.
+- `mimir logout` attempts to revoke the cloud token before removing local credentials.
 - Uploads default to the cloud URL used during login.
 - `--cloud-url` on `mimir upload` intentionally overrides the login URL.
 - `--force` re-sends chunks even if they were already marked uploaded locally.
@@ -196,6 +221,23 @@ chmod 700 ~/.mimir
 chmod 600 ~/.mimir/vault.db
 ```
 
+## Local SQLite Tables
+
+The local database lives at `~/.mimir/vault.db`. In DataGrip, connect to that file as SQLite.
+
+Primary local tables:
+
+- `memory_messages`: redacted source messages and metadata.
+- `memory_chunks`: searchable text chunks with JSON fallback embeddings.
+- `memory_vectors`: sqlite-vec vector index for local semantic search.
+- `memory_uploads`: local record of chunks uploaded to a cloud URL.
+- `metadata`: local feature flags and schema metadata.
+
+Local auth files are stored beside the database, not inside SQLite:
+
+- `~/.mimir/install.json`
+- `~/.mimir/cloud-auth.json`
+
 For Claude Code:
 
 ```bash
@@ -228,11 +270,39 @@ The Phase 2 cloud upload contract is represented by:
 
 - `POST /v1/auth/device/start`
 - `POST /v1/auth/device/complete`
+- `POST /v1/auth/logout`
+- `POST /v1/auth/revoke-all`
+- `DELETE /v1/install-identities/:installId`
 - `POST /v1/memories/batch`
 - `GET /v1/memories/count`
+- `GET /v1/memories/export`
 - `GET /v1/memories/search`
+- `DELETE /v1/memories`
+- `GET /v1/dashboard`
 - `POST /mcp`
 - `cloud/migrations/001_init.sql` for the initial Postgres + pgvector schema.
+
+## Production Embeddings
+
+Development mode uses deterministic hash embeddings:
+
+```env
+MIMIR_EMBEDDING_PROVIDER=dev
+```
+
+This proves the pipeline but gives weak semantic quality. For production-quality search, use OpenAI embeddings:
+
+```env
+MIMIR_EMBEDDING_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+```
+
+After changing providers, re-sync and upload so cloud memory contains vectors from the production model:
+
+```bash
+mimir reset-local
+mimir sync --source all --upload
+```
 
 ## Railway Cloud API
 
@@ -276,6 +346,22 @@ Confirm the cloud stored memories:
 ```bash
 mimir status
 ```
+
+Open the dashboard:
+
+```text
+https://YOUR-RAILWAY-APP.up.railway.app/dashboard
+```
+
+Paste the bearer token from `~/.mimir/cloud-auth.json` to view memory count, recent uploads, connected installs, export data, revoke the token, or delete uploaded cloud memory.
+
+Dashboard actions:
+
+- Export uploaded cloud memory as JSON.
+- Delete uploaded cloud memory.
+- Revoke the current token.
+- Revoke all tokens for the user.
+- Remove an install identity.
 
 For developer debugging only, the count endpoint accepts the stored bearer token from `~/.mimir/cloud-auth.json`:
 
@@ -336,7 +422,7 @@ If the MCP client cannot find the same `node` binary, configure the MCP server w
   "mcpServers": {
     "mimir": {
       "command": "/absolute/path/to/node",
-      "args": ["/home/sher-khan/Projects/Mimir/dist/cli.js", "mcp"]
+      "args": ["/home/sher-khan/Projects/Mimir/dist/local/cli/index.js", "mcp"]
     }
   }
 }

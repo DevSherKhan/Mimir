@@ -24,11 +24,27 @@ export interface MemoryCountResponse {
   count: number;
 }
 
+export interface LogoutResponse {
+  revoked: boolean;
+}
+
+export interface JsonRpcResponse {
+  jsonrpc?: string;
+  id?: unknown;
+  result?: unknown;
+  error?: {
+    code: number;
+    message: string;
+  };
+}
+
 export interface CloudClient {
   startDeviceLogin(installId: string): Promise<DeviceStartResponse>;
   completeDeviceLogin(deviceCode: string): Promise<DeviceCompleteResponse | null>;
+  logout(accessToken: string): Promise<LogoutResponse>;
   uploadMemoryBatch(chunks: MemoryChunkUpload[], accessToken: string): Promise<UploadBatchResponse>;
   getMemoryCount(accessToken: string): Promise<MemoryCountResponse>;
+  callMcp(body: Record<string, unknown>, accessToken: string): Promise<JsonRpcResponse>;
 }
 
 export function createCloudClient(cloudUrl: string): CloudClient {
@@ -54,6 +70,15 @@ export function createCloudClient(cloudUrl: string): CloudClient {
       }
     },
 
+    async logout(accessToken: string) {
+      return requestJson<LogoutResponse>(`${cloudUrl}/v1/auth/logout`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    },
+
     async uploadMemoryBatch(chunks: MemoryChunkUpload[], accessToken: string) {
       return requestJson<UploadBatchResponse>(`${cloudUrl}/v1/memories/batch`, {
         method: "POST",
@@ -70,6 +95,16 @@ export function createCloudClient(cloudUrl: string): CloudClient {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
+      });
+    },
+
+    async callMcp(body: Record<string, unknown>, accessToken: string) {
+      return requestJson<JsonRpcResponse>(`${cloudUrl}/mcp`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(body),
       });
     },
   };

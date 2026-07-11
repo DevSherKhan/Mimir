@@ -93,13 +93,15 @@ export function openMimirDatabase(dbPath: string): MimirDatabase {
 }
 
 export function applySchema(db: Database.Database, vectorIndexAvailable: boolean): void {
+  migrateLocalSchemaNames(db, vectorIndexAvailable);
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS metadata (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS messages (
+    CREATE TABLE IF NOT EXISTS memory_messages (
       id TEXT PRIMARY KEY,
       source_tool TEXT NOT NULL,
       workspace_path TEXT,
@@ -111,9 +113,9 @@ export function applySchema(db: Database.Database, vectorIndexAvailable: boolean
       created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
     );
 
-    CREATE TABLE IF NOT EXISTS chunks (
+    CREATE TABLE IF NOT EXISTS memory_chunks (
       id TEXT PRIMARY KEY,
-      message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      message_id TEXT NOT NULL REFERENCES memory_messages(id) ON DELETE CASCADE,
       chunk_index INTEGER NOT NULL,
       content TEXT NOT NULL,
       content_hash TEXT NOT NULL UNIQUE,
@@ -123,11 +125,11 @@ export function applySchema(db: Database.Database, vectorIndexAvailable: boolean
       embedded_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
     );
 
-    CREATE INDEX IF NOT EXISTS idx_messages_source_tool ON messages(source_tool);
-    CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
-    CREATE INDEX IF NOT EXISTS idx_chunks_message_id ON chunks(message_id);
+    CREATE INDEX IF NOT EXISTS idx_memory_messages_source_tool ON memory_messages(source_tool);
+    CREATE INDEX IF NOT EXISTS idx_memory_messages_session_id ON memory_messages(session_id);
+    CREATE INDEX IF NOT EXISTS idx_memory_chunks_message_id ON memory_chunks(message_id);
 
-    CREATE TABLE IF NOT EXISTS upload_records (
+    CREATE TABLE IF NOT EXISTS memory_uploads (
       cloud_url TEXT NOT NULL,
       content_hash TEXT NOT NULL,
       uploaded_at INTEGER NOT NULL,
@@ -137,7 +139,7 @@ export function applySchema(db: Database.Database, vectorIndexAvailable: boolean
 
   if (vectorIndexAvailable) {
     db.exec(`
-      CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
+      CREATE VIRTUAL TABLE IF NOT EXISTS memory_vectors USING vec0(
         embedding float[${EMBEDDING_DIMENSIONS}]
       );
     `);
@@ -150,9 +152,9 @@ export function applySchema(db: Database.Database, vectorIndexAvailable: boolean
 }
 
 export function getLocalStats(db: Database.Database, cloudUrl: string): LocalStats {
-  const messages = getCount(db, "messages");
-  const chunks = getCount(db, "chunks");
-  const uploadedChunks = db.prepare("SELECT COUNT(*) AS count FROM upload_records WHERE cloud_url = ?").get(cloudUrl) as { count: number };
+  const messages = getCount(db, "memory_messages");
+  const chunks = getCount(db, "memory_chunks");
+  const uploadedChunks = db.prepare("SELECT COUNT(*) AS count FROM memory_uploads WHERE cloud_url = ?").get(cloudUrl) as { count: number };
 
   return {
     messages,
@@ -179,9 +181,9 @@ export function listUploadChunks(db: Database.Database, cloudUrl: string, limit:
       c.embedding_provider AS embeddingProvider,
       c.embedding_model AS embeddingModel,
       c.embedding_json AS embeddingJson
-    FROM chunks c
-    JOIN messages m ON m.id = c.message_id
-    LEFT JOIN upload_records u
+    FROM memory_chunks c
+    JOIN memory_messages m ON m.id = c.message_id
+    LEFT JOIN memory_uploads u
       ON u.cloud_url = ?
      AND u.content_hash = c.content_hash
     WHERE (? = 1 OR u.content_hash IS NULL)
@@ -209,7 +211,7 @@ export function markChunksUploaded(db: Database.Database, cloudUrl: string, cont
   }
 
   const insert = db.prepare(`
-    INSERT OR REPLACE INTO upload_records (cloud_url, content_hash, uploaded_at)
+    INSERT OR REPLACE INTO memory_uploads (cloud_url, content_hash, uploaded_at)
     VALUES (?, ?, ?)
   `);
   const uploadedAt = Date.now();
@@ -224,7 +226,7 @@ export function markChunksUploaded(db: Database.Database, cloudUrl: string, cont
 export function insertMessageWithChunks(db: Database.Database, message: MessageInput, chunks: ChunkInput[]): boolean {
   const transaction = db.transaction(() => {
     const messageResult = db.prepare(`
-      INSERT OR IGNORE INTO messages
+      INSERT OR IGNORE INTO memory_messages
         (id, source_tool, workspace_path, session_id, role, content, timestamp, content_hash)
       VALUES
         (@id, @sourceTool, @workspacePath, @sessionId, @role, @content, @timestamp, @contentHash)
@@ -238,14 +240,14 @@ export function insertMessageWithChunks(db: Database.Database, message: MessageI
     }
 
     const insertChunk = db.prepare(`
-      INSERT OR IGNORE INTO chunks
+      INSERT OR IGNORE INTO memory_chunks
         (id, message_id, chunk_index, content, content_hash, embedding_provider, embedding_model, embedding_json)
       VALUES
         (@id, @messageId, @chunkIndex, @content, @contentHash, @embeddingProvider, @embeddingModel, @embeddingJson)
     `);
 
     const insertVector = hasUsableVecChunks(db)
-      ? db.prepare("INSERT OR REPLACE INTO vec_chunks(rowid, embedding) VALUES (?, ?)")
+      ? db.prepare("INSERT OR REPLACE INTO memory_vectors(rowid, embedding) VALUES (?, ?)")
       : null;
 
     for (const chunk of chunks) {
@@ -261,7 +263,7 @@ export function insertMessageWithChunks(db: Database.Database, message: MessageI
       });
 
       if (chunkResult.changes > 0 && insertVector) {
-        const row = db.prepare("SELECT rowid FROM chunks WHERE id = ?").get(chunk.id) as { rowid: number } | undefined;
+        const row = db.prepare("SELECT rowid FROM memory_chunks WHERE id = ?").get(chunk.id) as { rowid: number } | undefined;
         const rowid = row ? Number(row.rowid) : Number.NaN;
         if (Number.isSafeInteger(rowid)) {
           try {
@@ -297,9 +299,9 @@ export function searchChunks(
           m.role AS role,
           m.timestamp AS timestamp,
           v.distance AS distance
-        FROM vec_chunks v
-        JOIN chunks c ON c.rowid = v.rowid
-        JOIN messages m ON m.id = c.message_id
+        FROM memory_vectors v
+        JOIN memory_chunks c ON c.rowid = v.rowid
+        JOIN memory_messages m ON m.id = c.message_id
         WHERE v.embedding MATCH ?
           AND (? IS NULL OR m.source_tool = ?)
           AND (? IS NULL OR m.session_id = ?)
@@ -348,8 +350,8 @@ function fallbackSearch(
       m.session_id AS sessionId,
       m.role AS role,
       m.timestamp AS timestamp
-    FROM chunks c
-    JOIN messages m ON m.id = c.message_id
+    FROM memory_chunks c
+    JOIN memory_messages m ON m.id = c.message_id
     WHERE (? IS NULL OR m.source_tool = ?)
       AND (? IS NULL OR m.session_id = ?)
       AND (? IS NULL OR m.workspace_path = ?)
@@ -383,9 +385,126 @@ function fallbackSearch(
     .slice(0, limit);
 }
 
-function hasVecChunks(db: Database.Database): boolean {
-  const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'vec_chunks'").get();
+function migrateLocalSchemaNames(db: Database.Database, vectorIndexAvailable: boolean): void {
+  renameOrMergeTable(db, "messages", "memory_messages", `
+    INSERT OR IGNORE INTO memory_messages (
+      id,
+      source_tool,
+      workspace_path,
+      session_id,
+      role,
+      content,
+      timestamp,
+      content_hash,
+      created_at
+    )
+    SELECT
+      id,
+      source_tool,
+      workspace_path,
+      session_id,
+      role,
+      content,
+      timestamp,
+      content_hash,
+      created_at
+    FROM messages
+  `);
+
+  renameOrMergeTable(db, "chunks", "memory_chunks", `
+    INSERT OR IGNORE INTO memory_chunks (
+      rowid,
+      id,
+      message_id,
+      chunk_index,
+      content,
+      content_hash,
+      embedding_provider,
+      embedding_model,
+      embedding_json,
+      embedded_at
+    )
+    SELECT
+      rowid,
+      id,
+      message_id,
+      chunk_index,
+      content,
+      content_hash,
+      embedding_provider,
+      embedding_model,
+      embedding_json,
+      embedded_at
+    FROM chunks
+  `);
+
+  renameOrMergeTable(db, "upload_records", "memory_uploads", `
+    INSERT OR IGNORE INTO memory_uploads (
+      cloud_url,
+      content_hash,
+      uploaded_at
+    )
+    SELECT
+      cloud_url,
+      content_hash,
+      uploaded_at
+    FROM upload_records
+  `);
+
+  migrateVectorTable(db, vectorIndexAvailable);
+
+  db.exec(`
+    DROP INDEX IF EXISTS idx_messages_source_tool;
+    DROP INDEX IF EXISTS idx_messages_session_id;
+    DROP INDEX IF EXISTS idx_chunks_message_id;
+  `);
+}
+
+function renameOrMergeTable(db: Database.Database, oldName: string, newName: string, copySql: string): void {
+  if (!tableExists(db, oldName)) {
+    return;
+  }
+
+  if (!tableExists(db, newName)) {
+    db.exec(`ALTER TABLE ${oldName} RENAME TO ${newName}`);
+    return;
+  }
+
+  db.exec(copySql);
+  db.exec(`DROP TABLE ${oldName}`);
+}
+
+function migrateVectorTable(db: Database.Database, vectorIndexAvailable: boolean): void {
+  if (!vectorIndexAvailable || !tableExists(db, "vec_chunks")) {
+    return;
+  }
+
+  if (!tableExists(db, "memory_vectors")) {
+    db.exec(`
+      CREATE VIRTUAL TABLE memory_vectors USING vec0(
+        embedding float[${EMBEDDING_DIMENSIONS}]
+      );
+    `);
+  }
+
+  try {
+    db.exec(`
+      INSERT OR REPLACE INTO memory_vectors(rowid, embedding)
+      SELECT rowid, embedding FROM vec_chunks;
+    `);
+    db.exec("DROP TABLE vec_chunks");
+  } catch {
+    // If an older vector table cannot be read, keep JSON embeddings as the search fallback.
+  }
+}
+
+function tableExists(db: Database.Database, tableName: string): boolean {
+  const row = db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND name = ?").get(tableName);
   return Boolean(row);
+}
+
+function hasMemoryVectors(db: Database.Database): boolean {
+  return tableExists(db, "memory_vectors");
 }
 
 function getCount(db: Database.Database, table: string): number {
@@ -395,7 +514,7 @@ function getCount(db: Database.Database, table: string): number {
 
 function hasUsableVecChunks(db: Database.Database): boolean {
   const metadata = db.prepare("SELECT value FROM metadata WHERE key = 'vector_index_available'").get() as { value: string } | undefined;
-  return metadata?.value === "true" && hasVecChunks(db);
+  return metadata?.value === "true" && hasMemoryVectors(db);
 }
 
 function loadSqliteVec(db: Database.Database): boolean {

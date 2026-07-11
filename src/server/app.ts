@@ -3,6 +3,7 @@ import Fastify from "fastify";
 import { createCloudDatabase } from "../cloud/db/database.js";
 import type { ServerContext } from "./context.js";
 import { registerAuthRoutes } from "./routes/auth.routes.js";
+import { registerDashboardRoutes } from "./routes/dashboard.routes.js";
 import { registerDeviceRoutes } from "./routes/device.routes.js";
 import { registerHealthRoutes } from "./routes/health.routes.js";
 import { registerMcpRoutes } from "./routes/mcp.routes.js";
@@ -25,6 +26,7 @@ export async function buildServer(port: number) {
   await registerDeviceRoutes(app, context);
   await registerMemoryRoutes(app, context);
   await registerMcpRoutes(app, context);
+  await registerDashboardRoutes(app, context);
 
   app.setErrorHandler((error, _request, reply) => {
     const message = error instanceof Error ? error.message : "Unexpected server error";

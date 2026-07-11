@@ -2,8 +2,13 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { uploadMemoryBatchDtoSchema, searchMemoriesQueryDtoSchema } from "../../cloud/dto/memory.dto.js";
 import { authenticate, type ServerContext } from "../context.js";
 import { searchCloudMemories } from "../services/search.service.js";
+import { checkRateLimit } from "../utils/rate-limit.js";
 
 export async function uploadMemoryBatch(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
+  if (!checkRateLimit(request, reply, "memories.upload", 30, 60_000)) {
+    return reply;
+  }
+
   const userId = await authenticate(request, context);
   if (!userId) {
     return reply.code(401).send({ error: "Valid bearer token is required" });
@@ -19,6 +24,10 @@ export async function uploadMemoryBatch(request: FastifyRequest, reply: FastifyR
   }
 
   const acceptedContentHashes = await context.cloudDatabase.insertMemoryBatch(userId, parsed.data.chunks);
+  await context.cloudDatabase.recordAuditEvent(userId, "memories.upload", {
+    requested: parsed.data.chunks.length,
+    accepted: acceptedContentHashes.length,
+  });
   return {
     accepted: acceptedContentHashes.length,
     acceptedContentHashes,
@@ -26,6 +35,10 @@ export async function uploadMemoryBatch(request: FastifyRequest, reply: FastifyR
 }
 
 export async function countMemories(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
+  if (!checkRateLimit(request, reply, "memories.count", 120, 60_000)) {
+    return reply;
+  }
+
   const userId = await authenticate(request, context);
   if (!userId) {
     return reply.code(401).send({ error: "Valid bearer token is required" });
@@ -41,7 +54,74 @@ export async function countMemories(request: FastifyRequest, reply: FastifyReply
   };
 }
 
+export async function exportMemories(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
+  if (!checkRateLimit(request, reply, "memories.export", 10, 60_000)) {
+    return reply;
+  }
+
+  const userId = await authenticate(request, context);
+  if (!userId) {
+    return reply.code(401).send({ error: "Valid bearer token is required" });
+  }
+
+  if (!context.cloudDatabase) {
+    return reply.code(503).send({ error: "DATABASE_URL is not configured" });
+  }
+
+  const memories = await context.cloudDatabase.exportMemories(userId);
+  await context.cloudDatabase.recordAuditEvent(userId, "memories.export", { count: memories.length });
+  return reply
+    .header("Content-Disposition", "attachment; filename=\"mimir-memory-export.json\"")
+    .send({
+      userId,
+      exportedAt: new Date().toISOString(),
+      memories,
+    });
+}
+
+export async function deleteMemories(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
+  if (!checkRateLimit(request, reply, "memories.delete", 5, 60_000)) {
+    return reply;
+  }
+
+  const userId = await authenticate(request, context);
+  if (!userId) {
+    return reply.code(401).send({ error: "Valid bearer token is required" });
+  }
+
+  if (!context.cloudDatabase) {
+    return reply.code(503).send({ error: "DATABASE_URL is not configured" });
+  }
+
+  const deleted = await context.cloudDatabase.deleteMemories(userId);
+  await context.cloudDatabase.recordAuditEvent(userId, "memories.delete", { deleted });
+  return {
+    deleted,
+  };
+}
+
+export async function dashboardSummary(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
+  if (!checkRateLimit(request, reply, "dashboard.summary", 60, 60_000)) {
+    return reply;
+  }
+
+  const userId = await authenticate(request, context);
+  if (!userId) {
+    return reply.code(401).send({ error: "Valid bearer token is required" });
+  }
+
+  if (!context.cloudDatabase) {
+    return reply.code(503).send({ error: "DATABASE_URL is not configured" });
+  }
+
+  return context.cloudDatabase.getDashboardSummary(userId);
+}
+
 export async function searchMemories(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
+  if (!checkRateLimit(request, reply, "memories.search", 60, 60_000)) {
+    return reply;
+  }
+
   const userId = await authenticate(request, context);
   if (!userId) {
     return reply.code(401).send({ error: "Valid bearer token is required" });
@@ -57,7 +137,7 @@ export async function searchMemories(request: FastifyRequest, reply: FastifyRepl
   }
 
   const query = parsed.data;
-  return searchCloudMemories(context.cloudDatabase, userId, {
+  const result = await searchCloudMemories(context.cloudDatabase, userId, {
     query: query.query ?? query.q ?? "",
     limit: query.limit,
     sourceTool: query.sourceTool,
@@ -66,4 +146,9 @@ export async function searchMemories(request: FastifyRequest, reply: FastifyRepl
     since: query.since,
     until: query.until,
   });
+  await context.cloudDatabase.recordAuditEvent(userId, "memories.search", {
+    query: query.query ?? query.q ?? "",
+    resultCount: Array.isArray(result.results) ? result.results.length : undefined,
+  });
+  return result;
 }

@@ -37,6 +37,10 @@ interface UploadCommandOptions {
   cloudUrl?: string;
 }
 
+interface CloudSmokeCommandOptions {
+  query?: string;
+}
+
 const program = new Command();
 
 program
@@ -217,6 +221,10 @@ program
     const start = await client.startDeviceLogin(install.installId);
     console.log(`Open: ${start.verificationUri}`);
     console.log(`Code: ${start.userCode}`);
+    const opened = await openBrowser(start.verificationUri);
+    if (opened) {
+      console.log("Opened browser for approval.");
+    }
     console.log("Waiting for browser approval...");
 
     const intervalMs = Math.max(1, start.interval ?? 5) * 1000;
@@ -245,10 +253,49 @@ program
   .description("Remove stored cloud credentials.")
   .action(async () => {
     const { getMimirConfig } = await import("../../config/index.js");
-    const { clearCredentials } = await import("../../cloud/client/credentials.js");
+    const { clearCredentials, readCredentials } = await import("../../cloud/client/credentials.js");
+    const { createCloudClient } = await import("../../cloud/client/cloud-client.js");
     const config = getMimirConfig();
+    const credentials = readCredentials(config.homeDir);
+    let cloudRevoked = false;
+
+    if (credentials) {
+      try {
+        const result = await createCloudClient(credentials.cloudUrl).logout(credentials.accessToken);
+        cloudRevoked = Boolean(result.revoked);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`Could not revoke cloud token: ${message}`);
+      }
+    }
+
     clearCredentials(config.homeDir);
     console.log("Removed stored cloud credentials.");
+    if (cloudRevoked) {
+      console.log("Revoked cloud token.");
+    }
+  });
+
+program
+  .command("reset-local")
+  .description("Clear local indexed memory while preserving cloud login and install identity.")
+  .action(async () => {
+    const { getMimirConfig } = await import("../../config/index.js");
+    const { resetLocalDatabase } = await import("../db/reset.js");
+    const config = getMimirConfig();
+    const result = resetLocalDatabase(config.dbPath);
+
+    console.log("Reset local Mimir database.");
+    console.log(`Database: ${result.dbPath}`);
+    if (result.deletedPaths.length > 0) {
+      console.log("Deleted:");
+      for (const path of result.deletedPaths) {
+        console.log(`- ${path}`);
+      }
+    } else {
+      console.log("No existing database files were found.");
+    }
+    console.log("Preserved install identity and cloud credentials.");
   });
 
 program
@@ -346,6 +393,66 @@ program
   });
 
 program
+  .command("cloud-smoke")
+  .description("Verify hosted cloud API and MCP with stored credentials.")
+  .option("--query <text>", "Optional hosted MCP search query")
+  .action(async (options: CloudSmokeCommandOptions) => {
+    const { getMimirConfig } = await import("../../config/index.js");
+    const { readCredentials } = await import("../../cloud/client/credentials.js");
+    const { createCloudClient } = await import("../../cloud/client/cloud-client.js");
+    const config = getMimirConfig();
+    const credentials = readCredentials(config.homeDir);
+    if (!credentials) {
+      throw new Error("Not logged in. Run mimir login first.");
+    }
+
+    const client = createCloudClient(credentials.cloudUrl);
+    const count = await client.getMemoryCount(credentials.accessToken);
+    console.log(`Cloud API: ok (${count.count} chunks)`);
+
+    const initialized = await client.callMcp({
+      jsonrpc: "2.0",
+      id: "init",
+      method: "initialize",
+      params: {},
+    }, credentials.accessToken);
+    if (initialized.error) {
+      throw new Error(`MCP initialize failed: ${initialized.error.message}`);
+    }
+    console.log("MCP initialize: ok");
+
+    const tools = await client.callMcp({
+      jsonrpc: "2.0",
+      id: "tools",
+      method: "tools/list",
+      params: {},
+    }, credentials.accessToken);
+    if (tools.error) {
+      throw new Error(`MCP tools/list failed: ${tools.error.message}`);
+    }
+    console.log("MCP tools/list: ok");
+
+    if (options.query) {
+      const search = await client.callMcp({
+        jsonrpc: "2.0",
+        id: "search",
+        method: "tools/call",
+        params: {
+          name: "search_historical_chats",
+          arguments: {
+            query: options.query,
+            limit: 3,
+          },
+        },
+      }, credentials.accessToken);
+      if (search.error) {
+        throw new Error(`MCP search failed: ${search.error.message}`);
+      }
+      console.log("MCP search_historical_chats: ok");
+    }
+  });
+
+program
   .command("doctor")
   .description("Check local Mimir setup and MCP runtime compatibility.")
   .option("--json", "Print structured JSON diagnostics")
@@ -406,5 +513,28 @@ async function readCloudStatus(client: { getMemoryCount(accessToken: string): Pr
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { ok: false, error: message };
+  }
+}
+
+async function openBrowser(url: string): Promise<boolean> {
+  const { spawn } = await import("node:child_process");
+  const command = process.platform === "darwin"
+    ? "open"
+    : process.platform === "win32"
+      ? "cmd"
+      : "xdg-open";
+  const args = process.platform === "win32"
+    ? ["/c", "start", "", url]
+    : [url];
+
+  try {
+    const child = spawn(command, args, {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
+    return true;
+  } catch {
+    return false;
   }
 }

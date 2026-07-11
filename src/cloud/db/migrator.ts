@@ -12,7 +12,7 @@ export async function runCloudMigrations(pool: pg.Pool): Promise<void> {
     )
   `);
 
-  for (const fileName of ["001_init.sql", "002_device_login_hardening.sql"]) {
+  for (const fileName of ["001_init.sql", "002_device_login_hardening.sql", "003_audit_logs.sql"]) {
     await runMigration(pool, fileName);
   }
 }

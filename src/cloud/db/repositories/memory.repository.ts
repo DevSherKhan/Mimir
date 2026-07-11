@@ -1,6 +1,6 @@
 import type pg from "pg";
 import type { UploadMemoryChunkDto } from "../../dto/memory.dto.js";
-import type { CloudSearchOptions, CloudSearchResult } from "../types.js";
+import type { CloudDashboardSummary, CloudMemoryExport, CloudSearchOptions, CloudSearchResult } from "../types.js";
 
 export class CloudMemoryRepository {
   constructor(private readonly pool: pg.Pool) {}
@@ -79,6 +79,81 @@ export class CloudMemoryRepository {
     return Number.parseInt(result.rows[0]?.count ?? "0", 10);
   }
 
+  async deleteMemories(userId: string): Promise<number> {
+    const result = await this.pool.query(
+      "DELETE FROM memory_chunks WHERE user_id = $1",
+      [userId],
+    );
+    return result.rowCount ?? 0;
+  }
+
+  async exportMemories(userId: string): Promise<CloudMemoryExport[]> {
+    const result = await this.pool.query<MemoryExportRow>(`
+      SELECT
+        id::text,
+        source_tool,
+        workspace_path,
+        session_id,
+        role,
+        (extract(epoch FROM occurred_at) * 1000)::bigint::text AS timestamp,
+        content,
+        content_hash,
+        embedding_provider,
+        embedding_model,
+        created_at::text
+      FROM memory_chunks
+      WHERE user_id = $1
+      ORDER BY occurred_at DESC, created_at DESC
+    `, [userId]);
+
+    return result.rows.map(toMemoryExport);
+  }
+
+  async getDashboardSummary(userId: string): Promise<CloudDashboardSummary> {
+    const [count, installs, recent] = await Promise.all([
+      this.countMemories(userId),
+      this.pool.query<{
+        install_id: string;
+        created_at: string;
+        last_seen_at: string;
+      }>(`
+        SELECT install_id, created_at::text, last_seen_at::text
+        FROM install_identities
+        WHERE user_id = $1
+        ORDER BY last_seen_at DESC
+      `, [userId]),
+      this.pool.query<MemoryExportRow>(`
+        SELECT
+          id::text,
+          source_tool,
+          workspace_path,
+          session_id,
+          role,
+          (extract(epoch FROM occurred_at) * 1000)::bigint::text AS timestamp,
+          content,
+          content_hash,
+          embedding_provider,
+          embedding_model,
+          created_at::text
+        FROM memory_chunks
+        WHERE user_id = $1
+        ORDER BY occurred_at DESC, created_at DESC
+        LIMIT 12
+      `, [userId]),
+    ]);
+
+    return {
+      userId,
+      memoryCount: count,
+      installIdentities: installs.rows.map((row) => ({
+        installId: row.install_id,
+        createdAt: row.created_at,
+        lastSeenAt: row.last_seen_at,
+      })),
+      recentMemories: recent.rows.map(toMemoryExport),
+    };
+  }
+
   async searchMemories(userId: string, embedding: number[], options: CloudSearchOptions): Promise<CloudSearchResult[]> {
     const result = await this.pool.query<{
       chunk_id: string;
@@ -130,6 +205,36 @@ export class CloudMemoryRepository {
       content: row.content,
     }));
   }
+}
+
+interface MemoryExportRow {
+  id: string;
+  source_tool: string;
+  workspace_path: string | null;
+  session_id: string;
+  role: string;
+  timestamp: string;
+  content: string;
+  content_hash: string;
+  embedding_provider: string;
+  embedding_model: string;
+  created_at: string;
+}
+
+function toMemoryExport(row: MemoryExportRow): CloudMemoryExport {
+  return {
+    id: row.id,
+    sourceTool: row.source_tool,
+    workspacePath: row.workspace_path,
+    sessionId: row.session_id,
+    role: row.role,
+    timestamp: Number.parseInt(row.timestamp, 10),
+    content: row.content,
+    contentHash: row.content_hash,
+    embeddingProvider: row.embedding_provider,
+    embeddingModel: row.embedding_model,
+    createdAt: row.created_at,
+  };
 }
 
 function vectorLiteral(values: number[]): string {

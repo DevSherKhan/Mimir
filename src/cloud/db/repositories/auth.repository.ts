@@ -37,7 +37,7 @@ export class CloudAuthRepository {
 
     const code = result.rows[0]?.device_code;
     if (!code) {
-      throw new Error("Invalid or expired login code.");
+      throw new Error(await this.deviceLoginErrorMessage(deviceCode));
     }
 
     await this.pool.query(`
@@ -122,6 +122,72 @@ export class CloudAuthRepository {
     `, [sha256(token)]);
 
     return result.rows[0]?.user_id ?? null;
+  }
+
+  async revokeBearerToken(token: string): Promise<boolean> {
+    const result = await this.pool.query(`
+      UPDATE access_tokens
+      SET revoked_at = now()
+      WHERE token_hash = $1
+        AND revoked_at IS NULL
+    `, [sha256(token)]);
+
+    return Boolean(result.rowCount && result.rowCount > 0);
+  }
+
+  async revokeAllBearerTokens(userId: string): Promise<number> {
+    const result = await this.pool.query(`
+      UPDATE access_tokens
+      SET revoked_at = now()
+      WHERE user_id = $1
+        AND revoked_at IS NULL
+    `, [userId]);
+
+    return result.rowCount ?? 0;
+  }
+
+  async deleteInstallIdentity(userId: string, installId: string): Promise<boolean> {
+    const result = await this.pool.query(`
+      DELETE FROM install_identities
+      WHERE user_id = $1
+        AND install_id = $2
+    `, [userId, installId]);
+
+    return Boolean(result.rowCount && result.rowCount > 0);
+  }
+
+  async recordAuditEvent(userId: string | null, action: string, metadata: Record<string, unknown> = {}): Promise<void> {
+    await this.pool.query(`
+      INSERT INTO audit_logs (user_id, action, metadata)
+      VALUES ($1, $2, $3::jsonb)
+    `, [userId, action, JSON.stringify(metadata)]);
+  }
+
+  private async deviceLoginErrorMessage(deviceCode: string): Promise<string> {
+    const result = await this.pool.query<{
+      expires_at: Date;
+      approved_at: Date | null;
+      consumed_at: Date | null;
+    }>(`
+      SELECT expires_at, approved_at, consumed_at
+      FROM device_auth_codes
+      WHERE device_code = $1 OR user_code = upper($1)
+    `, [deviceCode]);
+
+    const row = result.rows[0];
+    if (!row) {
+      return "Login code was not found.";
+    }
+    if (row.consumed_at) {
+      return "Login code was already used.";
+    }
+    if (row.approved_at) {
+      return "Login code was already approved.";
+    }
+    if (new Date(row.expires_at).getTime() <= Date.now()) {
+      return "Login code expired.";
+    }
+    return "Login code cannot be approved.";
   }
 
   private async userIdForInstall(installId: string): Promise<string> {

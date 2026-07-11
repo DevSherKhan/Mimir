@@ -4,8 +4,13 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { authenticate, type ServerContext } from "../context.js";
 import { isRecord } from "../utils/guards.js";
 import { searchCloudMemories } from "../services/search.service.js";
+import { checkRateLimit } from "../utils/rate-limit.js";
 
 export async function callMcp(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
+  if (!checkRateLimit(request, reply, "mcp.call", 120, 60_000)) {
+    return reply;
+  }
+
   const userId = await authenticate(request, context);
   if (!userId) {
     return reply.code(401).send(jsonRpcError(null, -32001, "Valid bearer token is required"));

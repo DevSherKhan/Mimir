@@ -20,8 +20,15 @@ export async function createCloudDatabase(databaseUrl = process.env.DATABASE_URL
     approveDeviceLogin: auth.approveDeviceLogin.bind(auth),
     completeDeviceLogin: auth.completeDeviceLogin.bind(auth),
     userIdForBearerToken: auth.userIdForBearerToken.bind(auth),
+    revokeBearerToken: auth.revokeBearerToken.bind(auth),
+    revokeAllBearerTokens: auth.revokeAllBearerTokens.bind(auth),
+    deleteInstallIdentity: auth.deleteInstallIdentity.bind(auth),
+    recordAuditEvent: auth.recordAuditEvent.bind(auth),
     insertMemoryBatch: memories.insertMemoryBatch.bind(memories),
     countMemories: memories.countMemories.bind(memories),
+    deleteMemories: memories.deleteMemories.bind(memories),
+    exportMemories: memories.exportMemories.bind(memories),
+    getDashboardSummary: memories.getDashboardSummary.bind(memories),
     searchMemories: memories.searchMemories.bind(memories),
   };
 }

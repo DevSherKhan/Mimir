@@ -7,9 +7,13 @@ export interface ServerContext {
 }
 
 export async function authenticate(request: FastifyRequest, context: ServerContext): Promise<string | null> {
-  const auth = request.headers.authorization ?? "";
-  const token = auth.startsWith("Bearer ") ? auth.slice("Bearer ".length).trim() : null;
+  const token = bearerToken(request);
   return token && context.cloudDatabase ? context.cloudDatabase.userIdForBearerToken(token) : null;
+}
+
+export function bearerToken(request: FastifyRequest): string | null {
+  const auth = request.headers.authorization ?? "";
+  return auth.startsWith("Bearer ") ? auth.slice("Bearer ".length).trim() : null;
 }
 
 export function baseUrl(request: FastifyRequest, fallbackPort: number): string {
