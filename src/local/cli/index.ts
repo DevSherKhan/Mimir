@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import { redactSecrets } from "../../core/security/redact.js";
 import { formatSearchResult, normalizeSourceTool, parseOptionalTimestamp } from "../../core/search.js";
+import { MIMIR_VERSION } from "../../version.js";
 
 interface SyncCommandOptions {
   source?: string;
@@ -46,7 +47,7 @@ const program = new Command();
 program
   .name("mimir")
   .description("Local-first AI chat memory index.")
-  .version("0.1.0")
+  .version(MIMIR_VERSION)
   .helpCommand("help [command]", "display help for mimir or a command")
   .addHelpText("after", `
 Examples:

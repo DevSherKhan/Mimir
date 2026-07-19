@@ -1,5 +1,5 @@
 {
-  "name": "mimir",
+  "name": "mimir-chat-index",
   "version": "0.1.0",
   "description": "Local-first AI chat memory index exposed through a CLI and MCP server.",
   "keywords": [
@@ -41,6 +41,7 @@
     "start": "node --env-file-if-exists=.env dist/server/index.js",
     "dev:server": "node --env-file-if-exists=.env --import tsx src/server/index.ts",
     "prepack": "npm run check",
+    "release:check": "npm run check && npm pack --dry-run --ignore-scripts --cache .tmp/npm-cache",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p dashboard/tsconfig.json --noEmit",
     "test": "vitest run"
   },
@@ -91,6 +92,7 @@
     "LICENSE"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

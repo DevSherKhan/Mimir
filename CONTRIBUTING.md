@@ -43,4 +43,30 @@ By contributing, you agree that your contribution is licensed under the reposito
 
 ## Releases
 
-Mimir follows [Semantic Versioning](https://semver.org/). Maintainers update `CHANGELOG.md`, run `npm run check`, review the package contents with `npm pack --dry-run`, tag the release, and publish from a clean protected branch. Never publish from a working tree containing local credentials or chat data.
+Mimir follows [Semantic Versioning](https://semver.org/). Never publish from a working tree containing local credentials or chat data.
+
+For the first npm release, the owner of the unscoped `mimir-chat-index` package must publish interactively with an npm account protected by two-factor authentication. The registry identifier differs from the product name, but the installed executable remains `mimir`:
+
+```bash
+npm login
+npm run release:check
+npm publish
+```
+
+After the package exists, configure its npm trusted publisher with:
+
+- Provider: GitHub Actions
+- Repository owner: `DevSherKhan`
+- Repository: `Mimir`
+- Workflow: `publish-npm.yml`
+- Allowed action: `npm publish`
+
+Future releases are tag-driven. Update `package.json`, `package-lock.json`, and `CHANGELOG.md`, merge the release commit into `main`, then create and push the matching tag:
+
+```bash
+npm version patch
+git push origin main
+git push origin --follow-tags
+```
+
+The publish workflow rejects mismatched versions and commits that are not reachable from `main`. npm trusted publishing uses GitHub OIDC, so no long-lived npm token is stored in the repository.

@@ -1,3 +1,5 @@
+import { MIMIR_VERSION } from "../../version.js";
+
 const errorResponse = {
   description: "Request failed",
   content: {
@@ -13,7 +15,7 @@ export const openApiDocument = {
   openapi: "3.1.0",
   info: {
     title: "Mimir Cloud API",
-    version: "0.1.0",
+    version: MIMIR_VERSION,
     description: "Authenticated API for uploading, browsing, searching, exporting, and deleting sanitized AI conversation memory.",
     license: {
       name: "ISC",

@@ -9,6 +9,7 @@ All notable changes to Mimir are documented here. This project follows [Semantic
 - OpenAPI 3.1 contract and self-hosted Swagger UI.
 - Production Docker image, local pgvector Compose service, and safe environment template.
 - CI, CodeQL, dependency review, Dependabot, issue forms, and community health files.
+- Version-checked npm publishing through GitHub trusted publishing.
 
 ### Changed
 
