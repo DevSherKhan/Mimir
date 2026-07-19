@@ -17,6 +17,7 @@ export async function runCloudMigrations(pool: pg.Pool): Promise<void> {
     "002_device_login_hardening.sql",
     "003_audit_logs.sql",
     "004_shared_rate_limits.sql",
+    "005_memory_full_text_search.sql",
   ]) {
     await runMigration(pool, fileName);
   }

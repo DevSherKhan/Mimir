@@ -35,6 +35,10 @@ export async function createCloudDatabase(databaseUrl = process.env.DATABASE_URL
     deleteMemories: memories.deleteMemories.bind(memories),
     exportMemories: memories.exportMemories.bind(memories),
     getDashboardSummary: memories.getDashboardSummary.bind(memories),
+    listConversations: memories.listConversations.bind(memories),
+    listConversationEntries: memories.listConversationEntries.bind(memories),
+    listMemories: memories.listMemories.bind(memories),
+    keywordSearchMemories: memories.keywordSearchMemories.bind(memories),
     searchMemories: memories.searchMemories.bind(memories),
     close: pool.end.bind(pool),
   };

@@ -6,6 +6,7 @@ export interface SearchFilters {
   sourceTool?: SourceTool;
   sessionId?: string;
   workspacePath?: string;
+  role?: string;
   since?: number;
   until?: number;
 }
@@ -13,6 +14,7 @@ export interface SearchFilters {
 export interface SearchMetadata {
   provider: string;
   model: string;
+  strategy?: "semantic" | "hybrid";
   limit: number;
   filters: SearchFilters;
 }

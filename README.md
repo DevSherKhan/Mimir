@@ -222,6 +222,7 @@ Upload behavior:
 - Uploads default to the cloud URL used during login.
 - `--cloud-url` on `mimir upload` intentionally overrides the login URL.
 - `--force` re-sends chunks even if they were already marked uploaded locally.
+- Interactive uploads show live chunk and batch progress in the terminal.
 - Already uploaded chunks are tracked locally by cloud URL and content hash.
 - Raw external chat databases are never modified and never uploaded wholesale.
 
@@ -330,7 +331,7 @@ The Phase 2 cloud upload contract is represented by:
 - `GET /v1/dashboard`
 - `GET /v1/audit-logs`
 - `POST /mcp`
-- `cloud/migrations/001_init.sql` through `004_shared_rate_limits.sql` for Postgres, pgvector, audit logs, and shared rate limiting.
+- `cloud/migrations/001_init.sql` through `005_memory_full_text_search.sql` for Postgres, pgvector, full-text search, audit logs, and shared rate limiting.
 
 ## Production Embeddings
 
@@ -404,6 +405,8 @@ https://YOUR-RAILWAY-APP.up.railway.app/dashboard
 ```
 
 The dashboard no longer asks users to expose or paste a bearer token. If the browser is signed out, it shows the exact `mimir login` command and accepts the short approval code. Approval signs the CLI and browser into the same Mimir user, then stores the browser session in an HttpOnly, same-site cookie.
+
+The product dashboard uses shadcn/ui-style source components and includes overview, conversation, hybrid search, activity, and settings sections. Conversations have readable derived titles, chronological detail, and cursor pagination. Search combines PostgreSQL full-text ranking with vector similarity, groups matches by conversation, highlights matching terms, and supports source, session, workspace, role, and date filters.
 
 Browser sign-in flow:
 

@@ -11,6 +11,15 @@ export interface UploadOptions {
   batchSize: number;
   dryRun: boolean;
   force: boolean;
+  onProgress?: (progress: UploadProgress) => void;
+}
+
+export interface UploadProgress {
+  processed: number;
+  total: number;
+  uploaded: number;
+  completedBatches: number;
+  totalBatches: number;
 }
 
 export interface UploadResult {
@@ -43,6 +52,17 @@ export async function uploadPendingChunks(options: UploadOptions): Promise<Uploa
 
   const client = createCloudClient(cloudUrl);
   let uploaded = 0;
+  let processed = 0;
+  let completedBatches = 0;
+  const totalBatches = Math.ceil(chunks.length / options.batchSize);
+
+  options.onProgress?.({
+    processed,
+    total: chunks.length,
+    uploaded,
+    completedBatches,
+    totalBatches,
+  });
 
   for (let index = 0; index < chunks.length; index += options.batchSize) {
     const batch = chunks.slice(index, index + options.batchSize);
@@ -50,6 +70,15 @@ export async function uploadPendingChunks(options: UploadOptions): Promise<Uploa
     const acceptedContentHashes = response.acceptedContentHashes ?? batch.map((chunk) => chunk.contentHash);
     markChunksUploaded(options.db, cloudUrl, acceptedContentHashes);
     uploaded += acceptedContentHashes.length;
+    processed += batch.length;
+    completedBatches += 1;
+    options.onProgress?.({
+      processed,
+      total: chunks.length,
+      uploaded,
+      completedBatches,
+      totalBatches,
+    });
   }
 
   return {

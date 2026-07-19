@@ -25,10 +25,26 @@ export const searchMemoriesQueryDtoSchema = z.object({
   sourceTool: z.string().optional(),
   sessionId: z.string().optional(),
   workspacePath: z.string().optional(),
+  role: z.string().optional(),
   since: z.string().optional(),
   until: z.string().optional(),
+});
+
+export const conversationListQueryDtoSchema = z.object({
+  limit: z.union([z.string(), z.number()]).optional(),
+  sourceTool: z.string().optional(),
+  workspacePath: z.string().optional(),
+  cursor: z.string().optional(),
+});
+
+export const conversationDetailQueryDtoSchema = z.object({
+  sourceTool: z.string().min(1),
+  limit: z.union([z.string(), z.number()]).optional(),
+  cursor: z.string().optional(),
 });
 
 export type UploadMemoryChunkDto = z.infer<typeof uploadMemoryChunkDtoSchema>;
 export type UploadMemoryBatchDto = z.infer<typeof uploadMemoryBatchDtoSchema>;
 export type SearchMemoriesQueryDto = z.infer<typeof searchMemoriesQueryDtoSchema>;
+export type ConversationListQueryDto = z.infer<typeof conversationListQueryDtoSchema>;
+export type ConversationDetailQueryDto = z.infer<typeof conversationDetailQueryDtoSchema>;

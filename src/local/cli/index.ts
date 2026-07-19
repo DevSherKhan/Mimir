@@ -109,14 +109,22 @@ program
       console.log(`Inserted chunks: ${result.insertedChunks}`);
 
       if (options.upload) {
-        const uploadResult = await uploadPendingChunks({
-          homeDir: config.homeDir,
-          db: database.db,
-          limit: 500,
-          batchSize: 100,
-          dryRun: false,
-          force: false,
-        });
+        const { createUploadProgressBar } = await import("./progress.js");
+        const progressBar = createUploadProgressBar();
+        let uploadResult;
+        try {
+          uploadResult = await uploadPendingChunks({
+            homeDir: config.homeDir,
+            db: database.db,
+            limit: 500,
+            batchSize: 100,
+            dryRun: false,
+            force: false,
+            onProgress: (progress) => progressBar.update(progress),
+          });
+        } finally {
+          progressBar.stop();
+        }
         console.log(`Uploaded chunks: ${uploadResult.uploaded}/${uploadResult.selected}`);
       }
     } finally {
@@ -372,15 +380,23 @@ program
     const database = openMimirDatabase(config.dbPath);
 
     try {
-      const result = await uploadPendingChunks({
-        homeDir: config.homeDir,
-        db: database.db,
-        cloudUrl: options.cloudUrl ? config.cloudUrl : undefined,
-        limit: parseLimit(options.limit, 1, 10_000),
-        batchSize: parseLimit(options.batchSize, 1, 500),
-        dryRun: Boolean(options.dryRun),
-        force: Boolean(options.force),
-      });
+      const { createUploadProgressBar } = await import("./progress.js");
+      const progressBar = createUploadProgressBar();
+      let result;
+      try {
+        result = await uploadPendingChunks({
+          homeDir: config.homeDir,
+          db: database.db,
+          cloudUrl: options.cloudUrl ? config.cloudUrl : undefined,
+          limit: parseLimit(options.limit, 1, 10_000),
+          batchSize: parseLimit(options.batchSize, 1, 500),
+          dryRun: Boolean(options.dryRun),
+          force: Boolean(options.force),
+          onProgress: (progress) => progressBar.update(progress),
+        });
+      } finally {
+        progressBar.stop();
+      }
 
       if (result.dryRun) {
         console.log(`Would upload ${result.selected} chunks to ${result.cloudUrl}${options.force ? " (force)" : ""}`);

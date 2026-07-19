@@ -6,6 +6,7 @@ export const mcpSearchHistoricalChatsDtoSchema = z.object({
   sourceTool: z.string().optional(),
   sessionId: z.string().optional(),
   workspacePath: z.string().optional(),
+  role: z.string().optional(),
   since: z.string().optional(),
   until: z.string().optional(),
 });

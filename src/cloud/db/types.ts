@@ -17,6 +17,10 @@ export interface CloudDatabase {
   deleteMemories(userId: string): Promise<number>;
   exportMemories(userId: string): Promise<CloudMemoryExport[]>;
   getDashboardSummary(userId: string): Promise<CloudDashboardSummary>;
+  listConversations(userId: string, options: CloudConversationListOptions): Promise<CloudConversationSummary[]>;
+  listConversationEntries(userId: string, sourceTool: string, sessionId: string, options: CloudConversationEntryOptions): Promise<CloudConversationEntry[]>;
+  listMemories(userId: string, options: CloudSearchOptions): Promise<CloudMemoryResult[]>;
+  keywordSearchMemories(userId: string, query: string, options: CloudSearchOptions): Promise<CloudKeywordSearchResult[]>;
   searchMemories(userId: string, embedding: number[], options: CloudSearchOptions): Promise<CloudSearchResult[]>;
   close(): Promise<void>;
 }
@@ -53,19 +57,60 @@ export interface CloudSearchOptions {
   sourceTool?: string;
   sessionId?: string;
   workspacePath?: string;
+  role?: string;
   since?: number;
   until?: number;
 }
 
-export interface CloudSearchResult {
+export interface CloudConversationListOptions {
+  limit: number;
+  sourceTool?: string;
+  workspacePath?: string;
+  cursor?: {
+    lastActivityAt: number;
+    sourceTool: string;
+    sessionId: string;
+  };
+}
+
+export interface CloudConversationEntryOptions {
+  limit: number;
+  cursor?: {
+    timestamp: number;
+    chunkId: string;
+  };
+}
+
+export interface CloudConversationSummary {
+  sourceTool: string;
+  workspacePath: string | null;
+  sessionId: string;
+  titleSeed: string;
+  startedAt: number;
+  lastActivityAt: number;
+  memoryCount: number;
+}
+
+export interface CloudConversationEntry extends CloudMemoryResult {
+  createdAt: string;
+}
+
+export interface CloudMemoryResult {
   chunkId: string;
   sourceTool: string;
   workspacePath: string | null;
   sessionId: string;
   role: string;
   timestamp: number;
-  distance: number;
   content: string;
+}
+
+export interface CloudSearchResult extends CloudMemoryResult {
+  distance: number;
+}
+
+export interface CloudKeywordSearchResult extends CloudMemoryResult {
+  textRank: number;
 }
 
 export interface CloudMemoryExport {

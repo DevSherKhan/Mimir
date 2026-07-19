@@ -21,4 +21,5 @@ export async function registerDashboardRoutes(app: FastifyInstance, _context: Se
   });
 
   app.get("/dashboard", async (_request, reply) => reply.sendFile("index.html"));
+  app.get("/favicon.ico", async (_request, reply) => reply.redirect("/dashboard/favicon.svg"));
 }
