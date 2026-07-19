@@ -3,10 +3,13 @@
 [![CI](https://github.com/DevSherKhan/Mimir/actions/workflows/ci.yml/badge.svg)](https://github.com/DevSherKhan/Mimir/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/DevSherKhan/Mimir/actions/workflows/codeql.yml/badge.svg)](https://github.com/DevSherKhan/Mimir/actions/workflows/codeql.yml)
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-online-176b50.svg)](https://devsherkhan.github.io/Mimir/)
 
 Mimir gives your AI coding tools a searchable memory of past conversations. It indexes local Claude Code, Codex, and Cursor chats, redacts common secrets, and exposes the results through a CLI, an MCP server, and an optional self-hosted dashboard.
 
 Mimir is local-first: your chat history stays on your machine unless you explicitly configure and run a cloud upload.
+
+Read the complete guides at [devsherkhan.github.io/Mimir](https://devsherkhan.github.io/Mimir/).
 
 ## Features
 

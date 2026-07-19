@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-dashboard/
+dist-docs/
 coverage/
 .env
 .env.*

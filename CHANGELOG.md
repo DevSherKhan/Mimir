@@ -10,6 +10,7 @@ All notable changes to Mimir are documented here. This project follows [Semantic
 - Production Docker image, local pgvector Compose service, and safe environment template.
 - CI, CodeQL, dependency review, Dependabot, issue forms, and community health files.
 - Version-checked npm publishing through GitHub trusted publishing.
+- Routed online documentation with local search, dark mode, static SEO metadata, and GitHub Pages deployment.
 
 ### Changed
 
