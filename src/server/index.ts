@@ -1,7 +1,7 @@
 import { buildServer } from "./app.js";
+import { getServerRuntimeConfig } from "./config.js";
 
-const port = Number.parseInt(process.env.PORT ?? "3000", 10);
-const host = process.env.HOST ?? "0.0.0.0";
+const { port, host } = getServerRuntimeConfig();
 
 const server = await buildServer(port);
 await server.listen({ port, host });

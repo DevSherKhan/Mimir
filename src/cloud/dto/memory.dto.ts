@@ -15,7 +15,7 @@ export const uploadMemoryChunkDtoSchema = z.object({
 });
 
 export const uploadMemoryBatchDtoSchema = z.object({
-  chunks: z.array(uploadMemoryChunkDtoSchema),
+  chunks: z.array(uploadMemoryChunkDtoSchema).min(1).max(500),
 });
 
 export const searchMemoriesQueryDtoSchema = z.object({

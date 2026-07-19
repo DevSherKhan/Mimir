@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose an improvement to Mimir
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the desired behavior and alternatives considered.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Product area
+      options:
+        - Local CLI
+        - Ingestion
+        - Local MCP
+        - Cloud API
+        - Hosted MCP
+        - Dashboard
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy and security impact
+      description: Explain whether this changes local file access, uploads, authentication, or tenant isolation.

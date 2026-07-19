@@ -11,6 +11,9 @@ describe("server production hardening", () => {
     vi.stubEnv("DATABASE_URL", "");
     const app = await buildServer(3000);
     app.get("/test-ip", async (request) => ({ ip: request.ip }));
+    app.get("/test-error", async () => {
+      throw new Error("sensitive database failure");
+    });
 
     const response = await app.inject({
       method: "GET",
@@ -28,6 +31,14 @@ describe("server production hardening", () => {
     expect(response.headers["content-security-policy"]).toContain("script-src 'self'");
     expect(response.headers["content-security-policy"]).not.toContain("script-src 'self' 'unsafe-inline'");
     expect(response.headers["x-content-type-options"]).toBe("nosniff");
+
+    const errorResponse = await app.inject({ method: "GET", url: "/test-error" });
+    expect(errorResponse.statusCode).toBe(500);
+    expect(errorResponse.json()).toEqual({
+      error: "Internal server error",
+      requestId: expect.any(String),
+    });
+    expect(errorResponse.body).not.toContain("sensitive database failure");
     await app.close();
   });
 });

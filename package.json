@@ -2,16 +2,45 @@
   "name": "mimir",
   "version": "0.1.0",
   "description": "Local-first AI chat memory index exposed through a CLI and MCP server.",
+  "keywords": [
+    "ai",
+    "memory",
+    "mcp",
+    "model-context-protocol",
+    "codex",
+    "claude",
+    "cursor"
+  ],
+  "homepage": "https://github.com/DevSherKhan/Mimir#readme",
+  "bugs": {
+    "url": "https://github.com/DevSherKhan/Mimir/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DevSherKhan/Mimir.git"
+  },
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "bin": {
     "mimir": "dist/local/cli/index.js"
   },
   "scripts": {
-    "build": "npm run build:dashboard && tsc -p tsconfig.json",
+    "build": "npm run clean && npm run build:dashboard && tsc -p tsconfig.json",
     "build:dashboard": "node ./node_modules/vite/bin/vite.js build --config dashboard/vite.config.ts",
+    "check": "npm run typecheck && npm test && npm run build",
+    "clean": "node -e \"const fs = require('node:fs'); for (const path of ['dist', 'dist-dashboard']) fs.rmSync(path, { recursive: true, force: true })\"",
     "dev": "tsx src/local/cli/index.ts",
     "dev:dashboard": "node ./node_modules/vite/bin/vite.js --config dashboard/vite.config.ts",
     "start": "node --env-file-if-exists=.env dist/server/index.js",
+    "dev:server": "node --env-file-if-exists=.env --import tsx src/server/index.ts",
+    "prepack": "npm run check",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p dashboard/tsconfig.json --noEmit",
     "test": "vitest run"
   },
@@ -35,6 +64,7 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "sqlite-vec": "^0.1.6",
+    "swagger-ui-dist": "^5.29.4",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.3.2",
     "vite": "^7.3.6",
@@ -50,10 +80,17 @@
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   },
-  "main": "index.js",
-  "directories": {
-    "test": "tests"
-  },
-  "author": "",
-  "license": "ISC"
+  "author": "DevSherKhan",
+  "license": "ISC",
+  "files": [
+    "dist/",
+    "dist-dashboard/",
+    "cloud/migrations/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

@@ -2,6 +2,10 @@
 
 Mimir is a local-first AI chat memory index. It ingests local chat logs, chunks and embeds them, stores vectors in SQLite, and exposes search through a CLI and MCP server.
 
+[![CI](https://github.com/DevSherKhan/Mimir/actions/workflows/ci.yml/badge.svg)](https://github.com/DevSherKhan/Mimir/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/DevSherKhan/Mimir/actions/workflows/codeql.yml/badge.svg)](https://github.com/DevSherKhan/Mimir/actions/workflows/codeql.yml)
+[![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
+
 The MVP works without an OpenAI subscription by defaulting to deterministic development embeddings. These are useful for testing the pipeline, but they are not true semantic embeddings.
 
 ## Prerequisites
@@ -86,6 +90,35 @@ npm run build
 - `MIMIR_EMBEDDING_PROVIDER`: `dev` or `openai`. Defaults to `dev`.
 - `OPENAI_API_KEY`: required only when `MIMIR_EMBEDDING_PROVIDER=openai`.
 - `MIMIR_CLOUD_URL`: hosted Mimir API URL. Defaults to `https://api.mimir.cloud`. HTTPS is required except for localhost development.
+- `DATABASE_URL`: PostgreSQL connection string for the hosted API.
+- `MIMIR_DOCS_ENABLED`: set to `false` to remove `/docs/` and `/openapi.json`.
+
+Copy the safe template for local development:
+
+```bash
+cp .env.example .env
+```
+
+Never commit `.env`; it is intentionally ignored.
+
+## Local Cloud Development
+
+Start PostgreSQL with pgvector, build Mimir, and launch the hosted service:
+
+```bash
+docker compose up -d postgres
+npm run build
+npm start
+```
+
+Then open:
+
+- Dashboard: `http://localhost:3000/dashboard`
+- Swagger UI: `http://localhost:3000/docs/`
+- OpenAPI JSON: `http://localhost:3000/openapi.json`
+- Health check: `http://localhost:3000/health`
+
+The server applies pending SQL migrations during startup. Stop local PostgreSQL with `docker compose down`; add `--volumes` only when you intentionally want to delete the development database.
 
 ## Project Layout
 
@@ -105,6 +138,7 @@ npm run build
 - `src/server/routes/`: HTTP route definitions.
 - `src/server/controllers/`: request/response controllers.
 - `src/server/services/`: hosted business logic such as cloud memory search.
+- `src/server/openapi/`: the OpenAPI contract served by Swagger UI.
 - `src/server/views/`: login approval HTML.
 - `src/server/utils/`: small server-side guards/helpers.
 
@@ -241,6 +275,7 @@ Inputs:
 - `sourceTool`: optional source filter: `claude`, `claude-code`, `codex`, `cursor`, `fixture`, or `fixtures`.
 - `sessionId`: optional session filter.
 - `workspacePath`: optional workspace path filter.
+- `role`: optional role filter such as `user` or `assistant`.
 - `since`: optional ISO date, Unix seconds, or Unix milliseconds.
 - `until`: optional ISO date, Unix seconds, or Unix milliseconds.
 
@@ -326,9 +361,12 @@ The Phase 2 cloud upload contract is represented by:
 - `POST /v1/memories/batch`
 - `GET /v1/memories/count`
 - `GET /v1/memories/export`
+- `GET /v1/memories/browse`
 - `GET /v1/memories/search`
 - `DELETE /v1/memories`
 - `GET /v1/dashboard`
+- `GET /v1/conversations`
+- `GET /v1/conversations/:sessionId`
 - `GET /v1/audit-logs`
 - `POST /mcp`
 - `cloud/migrations/001_init.sql` through `005_memory_full_text_search.sql` for Postgres, pgvector, full-text search, audit logs, and shared rate limiting.
@@ -445,6 +483,22 @@ Hosted MCP endpoint:
 https://YOUR-RAILWAY-APP.up.railway.app/mcp
 ```
 
+## API Documentation
+
+Swagger UI is served at `/docs/`, with the OpenAPI 3.1 document at `/openapi.json`. Protected endpoints accept either a bearer token or the HttpOnly dashboard session cookie. Use a token obtained through the CLI device-login flow for Swagger authorization, and never paste production credentials into a shared browser.
+
+Disable the documentation surface when required by deployment policy:
+
+```env
+MIMIR_DOCS_ENABLED=false
+```
+
+The contract lives in `src/server/openapi/document.ts`. API changes must update the contract and its tests in the same pull request.
+
+## Contributing and Security
+
+Mimir is open source under the [ISC license](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for development expectations, [SECURITY.md](SECURITY.md) for private vulnerability reporting, [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community standards, and [GOVERNANCE.md](GOVERNANCE.md) for project decision-making.
+
 ## Troubleshooting MCP Startup
 
 If Claude, Codex, Cursor, or another MCP client reports:
@@ -468,11 +522,10 @@ If Node comes from Snap, install Node 20+ another way such as `nvm`, then rebuil
 
 ```bash
 cd /home/sher-khan/Projects/Mimir
-rm -rf node_modules package-lock.json
-npm install
+nvm use
+npm ci
 npm run build
 npm link
-npm rebuild better-sqlite3
 ```
 
 If the MCP client cannot find the same `node` binary, configure the MCP server with absolute paths:

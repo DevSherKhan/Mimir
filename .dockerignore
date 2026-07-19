@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+.codegraph
+node_modules
+dist
+dist-dashboard
+coverage
+.env
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
