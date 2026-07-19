@@ -17,7 +17,7 @@ export class CloudMemoryRepository {
 
       const acceptedHashes: string[] = [];
       for (const chunk of chunks) {
-        await client.query(`
+        const inserted = await client.query(`
           INSERT INTO memory_chunks (
             user_id,
             source_tool,
@@ -58,7 +58,9 @@ export class CloudMemoryRepository {
           chunk.embeddingModel,
           vectorLiteral(chunk.embedding),
         ]);
-        acceptedHashes.push(chunk.contentHash);
+        if ((inserted.rowCount ?? 0) > 0) {
+          acceptedHashes.push(chunk.contentHash);
+        }
       }
 
       await client.query("COMMIT");
@@ -110,7 +112,7 @@ export class CloudMemoryRepository {
   }
 
   async getDashboardSummary(userId: string): Promise<CloudDashboardSummary> {
-    const [count, installs, recent] = await Promise.all([
+    const [count, installs, recent, auditEvents] = await Promise.all([
       this.countMemories(userId),
       this.pool.query<{
         install_id: string;
@@ -140,6 +142,18 @@ export class CloudMemoryRepository {
         ORDER BY occurred_at DESC, created_at DESC
         LIMIT 12
       `, [userId]),
+      this.pool.query<{
+        id: string;
+        action: string;
+        metadata: Record<string, unknown>;
+        created_at: string;
+      }>(`
+        SELECT id::text, action, metadata, created_at::text
+        FROM audit_logs
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 12
+      `, [userId]),
     ]);
 
     return {
@@ -151,6 +165,12 @@ export class CloudMemoryRepository {
         lastSeenAt: row.last_seen_at,
       })),
       recentMemories: recent.rows.map(toMemoryExport),
+      auditEvents: auditEvents.rows.map((row) => ({
+        id: row.id,
+        action: row.action,
+        metadata: row.metadata,
+        createdAt: row.created_at,
+      })),
     };
   }
 

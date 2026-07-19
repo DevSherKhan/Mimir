@@ -4,7 +4,7 @@
   "description": "Local-first AI chat memory index exposed through a CLI and MCP server.",
   "type": "module",
   "bin": {
-    "mimir": "./dist/local/cli/index.js"
+    "mimir": "dist/local/cli/index.js"
   },
   "scripts": {
     "build": "npm run build:dashboard && tsc -p tsconfig.json",
@@ -45,5 +45,11 @@
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
-  }
+  },
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "author": "",
+  "license": "ISC"
 }

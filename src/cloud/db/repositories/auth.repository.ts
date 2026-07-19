@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type pg from "pg";
-import type { DeviceLoginApproval, DeviceLoginComplete, DeviceLoginStart } from "../types.js";
+import { DeviceLoginStateError, type DeviceLoginApproval, type DeviceLoginComplete, type DeviceLoginStart } from "../types.js";
 
 export class CloudAuthRepository {
   constructor(private readonly pool: pg.Pool) {}
@@ -67,22 +67,35 @@ export class CloudAuthRepository {
       const result = await client.query<{
         approved_user_id: string | null;
         access_token_hash: string | null;
+        approved_at: Date | null;
+        consumed_at: Date | null;
+        expires_at: Date;
       }>(`
-        SELECT approved_user_id, access_token_hash
+        SELECT approved_user_id, access_token_hash, approved_at, consumed_at, expires_at
         FROM device_auth_codes
         WHERE device_code = $1
-          AND expires_at > now()
-          AND consumed_at IS NULL
         FOR UPDATE
       `, [deviceCode]);
 
       const row = result.rows[0];
-      if (!row?.approved_user_id || row.access_token_hash) {
+      if (!row) {
+        throw new DeviceLoginStateError(404, "Login code was not found.");
+      }
+      if (row.consumed_at || row.access_token_hash) {
+        throw new DeviceLoginStateError(409, "Login code was already used.");
+      }
+      if (new Date(row.expires_at).getTime() <= Date.now()) {
+        throw new DeviceLoginStateError(410, "Login code expired. Start login again to get a new code.");
+      }
+      if (!row.approved_at) {
         await client.query("COMMIT");
         return null;
       }
+      if (!row.approved_user_id) {
+        throw new DeviceLoginStateError(409, "Login code is missing a user identity.");
+      }
 
-      const accessToken = `mimir_${randomUUID().replaceAll("-", "")}${randomUUID().replaceAll("-", "")}`;
+      const accessToken = createAccessToken();
       const tokenHash = sha256(accessToken);
       await client.query(`
         INSERT INTO access_tokens (token_hash, user_id)
@@ -105,6 +118,19 @@ export class CloudAuthRepository {
     } finally {
       client.release();
     }
+  }
+
+  async createBearerToken(userId: string): Promise<DeviceLoginComplete> {
+    const accessToken = createAccessToken();
+    await this.pool.query(`
+      INSERT INTO access_tokens (token_hash, user_id)
+      VALUES ($1, $2)
+    `, [sha256(accessToken), userId]);
+
+    return {
+      accessToken,
+      userId,
+    };
   }
 
   async userIdForBearerToken(token: string, env: NodeJS.ProcessEnv = process.env): Promise<string | null> {
@@ -229,8 +255,12 @@ export class CloudAuthRepository {
 }
 
 export function userIdForDevToken(token: string, env: NodeJS.ProcessEnv = process.env): string | null {
-  const expectedToken = env.MIMIR_DEV_ACCESS_TOKEN ?? "dev-token";
-  if (token !== expectedToken) {
+  if (env.NODE_ENV === "production" && env.MIMIR_ALLOW_DEV_TOKEN !== "true") {
+    return null;
+  }
+
+  const expectedToken = env.MIMIR_DEV_ACCESS_TOKEN;
+  if (!expectedToken || token !== expectedToken) {
     return null;
   }
 
@@ -239,6 +269,10 @@ export function userIdForDevToken(token: string, env: NodeJS.ProcessEnv = proces
 
 function createUserCode(): string {
   return randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase();
+}
+
+function createAccessToken(): string {
+  return `mimir_${randomUUID().replaceAll("-", "")}${randomUUID().replaceAll("-", "")}`;
 }
 
 function sha256(value: string): string {

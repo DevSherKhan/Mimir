@@ -1,9 +1,11 @@
 import type { ServerContext } from "../context.js";
 
 export function healthResponse(context: ServerContext) {
+  const databaseConfigured = Boolean(context.cloudDatabase);
+
   return {
     name: "mimir",
-    status: "ok",
-    database: context.cloudDatabase ? "configured" : "not_configured",
+    status: databaseConfigured ? "ok" : "unavailable",
+    database: databaseConfigured ? "configured" : "not_configured",
   };
 }

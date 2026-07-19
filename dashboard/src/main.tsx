@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useMemo, useState } from "react";
+import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
@@ -20,34 +20,38 @@ interface DashboardSummary {
     content: string;
     createdAt: string;
   }>;
+  auditEvents: Array<{
+    id: string;
+    action: string;
+    metadata: Record<string, unknown>;
+    createdAt: string;
+  }>;
 }
 
 function App() {
-  const [token, setToken] = useState(() => sessionStorage.getItem("mimir.dashboard.token") ?? "");
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const isAuthed = token.trim().length > 0;
-
-  const headers = useMemo(() => ({
-    Authorization: `Bearer ${token.trim()}`,
-  }), [token]);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [loginCode, setLoginCode] = useState("");
+  const loginCommand = `mimir login --cloud-url ${window.location.origin}`;
 
   async function loadDashboard() {
-    if (!isAuthed) {
-      return;
-    }
-
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch("/v1/dashboard", { headers });
+      const response = await fetch("/v1/dashboard", { credentials: "same-origin" });
       const body = await response.json() as DashboardSummary | { error?: string };
+      if (response.status === 401) {
+        setSummary(null);
+        setAuthRequired(true);
+        return;
+      }
       if (!response.ok) {
         throw new Error("error" in body && body.error ? body.error : "Could not load dashboard");
       }
       setSummary(body as DashboardSummary);
-      sessionStorage.setItem("mimir.dashboard.token", token.trim());
+      setAuthRequired(false);
     } catch (unknownError) {
       setSummary(null);
       setError(unknownError instanceof Error ? unknownError.message : "Could not load dashboard");
@@ -56,11 +60,50 @@ function App() {
     }
   }
 
+  async function approveLogin() {
+    const code = loginCode.trim().toUpperCase();
+    if (!code) {
+      setError("Enter the login code shown by the Mimir CLI.");
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/device/approve", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ code }),
+      });
+      const body = await response.text();
+      if (!response.ok) {
+        throw new Error(readHtmlMessage(body) ?? "Could not approve login code");
+      }
+      setLoginCode("");
+      await loadDashboard();
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "Could not approve login code");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyLoginCommand() {
+    try {
+      await navigator.clipboard.writeText(loginCommand);
+    } catch {
+      setError("Could not copy automatically. Select and copy the command manually.");
+    }
+  }
+
   async function exportMemory() {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch("/v1/memories/export", { headers });
+      const response = await fetch("/v1/memories/export", { credentials: "same-origin" });
       const body = await response.blob();
       if (!response.ok) {
         throw new Error("Could not export memory");
@@ -88,7 +131,7 @@ function App() {
     try {
       const response = await fetch("/v1/memories", {
         method: "DELETE",
-        headers,
+        credentials: "same-origin",
       });
       const body = await response.json() as { deleted?: number; error?: string };
       if (!response.ok) {
@@ -108,15 +151,14 @@ function App() {
     try {
       const response = await fetch("/v1/auth/logout", {
         method: "POST",
-        headers,
+        credentials: "same-origin",
       });
       const body = await response.json() as { error?: string };
       if (!response.ok) {
         throw new Error(body.error ?? "Could not revoke token");
       }
-      sessionStorage.removeItem("mimir.dashboard.token");
-      setToken("");
       setSummary(null);
+      setAuthRequired(true);
     } catch (unknownError) {
       setError(unknownError instanceof Error ? unknownError.message : "Could not revoke token");
     } finally {
@@ -134,15 +176,14 @@ function App() {
     try {
       const response = await fetch("/v1/auth/revoke-all", {
         method: "POST",
-        headers,
+        credentials: "same-origin",
       });
       const body = await response.json() as { revoked?: number; error?: string };
       if (!response.ok) {
         throw new Error(body.error ?? "Could not revoke tokens");
       }
-      sessionStorage.removeItem("mimir.dashboard.token");
-      setToken("");
       setSummary(null);
+      setAuthRequired(true);
     } catch (unknownError) {
       setError(unknownError instanceof Error ? unknownError.message : "Could not revoke tokens");
     } finally {
@@ -160,7 +201,7 @@ function App() {
     try {
       const response = await fetch(`/v1/install-identities/${encodeURIComponent(installId)}`, {
         method: "DELETE",
-        headers,
+        credentials: "same-origin",
       });
       const body = await response.json() as { deleted?: boolean; error?: string };
       if (!response.ok) {
@@ -175,9 +216,7 @@ function App() {
   }
 
   useEffect(() => {
-    if (isAuthed) {
-      void loadDashboard();
-    }
+    void loadDashboard();
   }, []);
 
   return (
@@ -189,27 +228,48 @@ function App() {
             <h1 className="mt-1 text-3xl font-semibold tracking-tight">Memory Dashboard</h1>
           </div>
           <div className="flex gap-2">
-            <button className="btn-secondary" disabled={busy || !isAuthed} onClick={loadDashboard}>Refresh</button>
-            <button className="btn-secondary" disabled={busy || !isAuthed} onClick={revokeToken}>Revoke Token</button>
-            <button className="btn-secondary" disabled={busy || !isAuthed} onClick={revokeAllTokens}>Revoke All</button>
+            <button className="btn-secondary" disabled={busy} onClick={loadDashboard}>Refresh</button>
+            <button className="btn-secondary" disabled={busy || !summary} onClick={revokeToken}>Sign out</button>
+            <button className="btn-secondary" disabled={busy || !summary} onClick={revokeAllTokens}>Revoke All</button>
           </div>
         </header>
 
-        <section className="grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-          <label className="text-sm font-medium text-zinc-700" htmlFor="token">Bearer token</label>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              id="token"
-              className="min-w-0 flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-900"
-              value={token}
-              onChange={(event) => setToken(event.target.value)}
-              placeholder="Paste token from ~/.mimir/cloud-auth.json"
-              type="password"
-            />
-            <button className="btn-primary" disabled={busy || !isAuthed} onClick={loadDashboard}>Load Dashboard</button>
-          </div>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        </section>
+        {authRequired && !summary ? (
+          <section className="grid gap-5 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+            <div>
+              <p className="text-sm font-medium text-zinc-500">Secure browser sign-in</p>
+              <h2 className="mt-1 text-xl font-semibold tracking-tight">Connect this browser to Mimir</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">Start login from the Mimir CLI so this dashboard connects to the same account and memories as your local install. No bearer token needs to be copied.</p>
+            </div>
+            <div className="grid gap-3 rounded-md bg-zinc-950 p-4 text-zinc-100 sm:grid-cols-[1fr_auto] sm:items-center">
+              <code className="overflow-x-auto text-sm">{loginCommand}</code>
+              <button className="rounded-md bg-white px-3 py-2 text-sm font-medium text-zinc-950 hover:bg-zinc-200" onClick={copyLoginCommand}>Copy command</button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <label className="grid gap-2 text-sm font-medium text-zinc-700" htmlFor="login-code">
+                Login code
+                <input
+                  id="login-code"
+                  className="min-w-0 rounded-md border border-zinc-300 px-3 py-2 font-mono text-sm uppercase tracking-widest outline-none focus:border-zinc-900"
+                  value={loginCode}
+                  onChange={(event) => setLoginCode(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      void approveLogin();
+                    }
+                  }}
+                  placeholder="AB12CD34"
+                  autoComplete="one-time-code"
+                />
+              </label>
+              <button className="btn-primary self-end" disabled={busy || !loginCode.trim()} onClick={approveLogin}>Approve and sign in</button>
+            </div>
+            <p className="text-xs leading-5 text-zinc-500">The CLI may open a separate approval page automatically. You can approve there, then return here and press Refresh.</p>
+            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          </section>
+        ) : error ? (
+          <section className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</section>
+        ) : null}
 
         <section className="grid gap-4 md:grid-cols-3">
           <Metric label="Cloud memories" value={summary?.memoryCount.toLocaleString() ?? "-"} />
@@ -256,6 +316,19 @@ function App() {
               </div>
             </div>
 
+            <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+              <h2 className="font-medium">Security activity</h2>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">Recent authenticated actions on this account.</p>
+              <div className="mt-3 divide-y divide-zinc-100">
+                {summary?.auditEvents.length ? summary.auditEvents.map((event) => (
+                  <div className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0" key={event.id}>
+                    <p className="text-sm font-medium text-zinc-700">{formatAuditAction(event.action)}</p>
+                    <time className="shrink-0 text-xs text-zinc-500" dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time>
+                  </div>
+                )) : <p className="text-sm text-zinc-500">No security activity recorded yet.</p>}
+              </div>
+            </div>
+
             <div className="rounded-lg border border-red-200 bg-white p-4 shadow-sm">
               <h2 className="font-medium text-red-700">Danger zone</h2>
               <p className="mt-2 text-sm leading-6 text-zinc-600">Delete all uploaded cloud memory for this user. Local memory on your laptop is not touched.</p>
@@ -275,6 +348,20 @@ function Metric({ label, value, mono = false }: { label: string; value: string; 
       <p className={`mt-2 truncate text-2xl font-semibold ${mono ? "font-mono text-sm" : ""}`}>{value}</p>
     </div>
   );
+}
+
+function readHtmlMessage(html: string): string | null {
+  const document = new DOMParser().parseFromString(html, "text/html");
+  return document.querySelector("p")?.textContent?.trim()
+    ?? document.querySelector("h1")?.textContent?.trim()
+    ?? null;
+}
+
+function formatAuditAction(action: string): string {
+  return action
+    .split(".")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).replaceAll("_", " "))
+    .join(" · ");
 }
 
 createRoot(document.getElementById("root")!).render(

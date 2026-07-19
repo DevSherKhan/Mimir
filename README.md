@@ -4,6 +4,22 @@ Mimir is a local-first AI chat memory index. It ingests local chat logs, chunks 
 
 The MVP works without an OpenAI subscription by defaulting to deterministic development embeddings. These are useful for testing the pipeline, but they are not true semantic embeddings.
 
+## Prerequisites
+
+Mimir is verified with Node.js 20.20.2. Using the repository's pinned version keeps native dependencies such as `better-sqlite3` on the correct Node ABI:
+
+```bash
+nvm install
+nvm use
+npm install
+```
+
+If dependencies were installed under a different Node major version, switch back with `nvm use` and rebuild them:
+
+```bash
+npm rebuild
+```
+
 ## Commands
 
 ```bash
@@ -103,6 +119,39 @@ npm run build
 ## Cloud Upload Mode
 
 Cloud mode is opt-in. The local agent still does all local file reading, redaction, chunking, and embedding. Mimir Cloud receives sanitized chunk records only; it never reads Claude, Codex, Cursor, or ChatGPT files directly from a user's machine.
+
+## Railway Deployment
+
+The repository includes `railway.json` with the production build, start command, `/health` deployment gate, and restart policy. The healthcheck returns HTTP 503 when `DATABASE_URL` is missing, so a database-less deployment will not be promoted as healthy.
+
+Production backup, monitoring, secret-rotation, audit-review, and restore procedures are documented in [`OPERATIONS.md`](OPERATIONS.md).
+
+Configure the Mimir service with:
+
+```text
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+NODE_ENV=production
+HOST=0.0.0.0
+MIMIR_EMBEDDING_PROVIDER=dev
+```
+
+Railway supplies `PORT`. The database must support the `vector` and `pgcrypto` extensions used by the migrations. Do not configure `MIMIR_DEV_ACCESS_TOKEN` in production unless an explicit emergency development token is required; normal users authenticate through device login.
+
+After Railway reports a healthy deployment, verify the complete authenticated path from the local machine:
+
+```bash
+mimir logout
+mimir login --cloud-url https://YOUR-MIMIR-SERVICE.up.railway.app
+mimir sync --source codex
+mimir upload
+mimir cloud-smoke --query "Mimir Railway"
+```
+
+Then open:
+
+```text
+https://YOUR-MIMIR-SERVICE.up.railway.app/dashboard
+```
 
 Login through the browser:
 
@@ -279,8 +328,9 @@ The Phase 2 cloud upload contract is represented by:
 - `GET /v1/memories/search`
 - `DELETE /v1/memories`
 - `GET /v1/dashboard`
+- `GET /v1/audit-logs`
 - `POST /mcp`
-- `cloud/migrations/001_init.sql` for the initial Postgres + pgvector schema.
+- `cloud/migrations/001_init.sql` through `004_shared_rate_limits.sql` for Postgres, pgvector, audit logs, and shared rate limiting.
 
 ## Production Embeddings
 
@@ -353,7 +403,14 @@ Open the dashboard:
 https://YOUR-RAILWAY-APP.up.railway.app/dashboard
 ```
 
-Paste the bearer token from `~/.mimir/cloud-auth.json` to view memory count, recent uploads, connected installs, export data, revoke the token, or delete uploaded cloud memory.
+The dashboard no longer asks users to expose or paste a bearer token. If the browser is signed out, it shows the exact `mimir login` command and accepts the short approval code. Approval signs the CLI and browser into the same Mimir user, then stores the browser session in an HttpOnly, same-site cookie.
+
+Browser sign-in flow:
+
+1. Open `/dashboard`.
+2. Run the command shown on the sign-in card.
+3. Approve the code in the page opened by the CLI, or enter it directly on the dashboard.
+4. The dashboard loads the matching user's cloud memories automatically.
 
 Dashboard actions:
 

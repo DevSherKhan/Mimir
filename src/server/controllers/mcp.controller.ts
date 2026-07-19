@@ -5,9 +5,10 @@ import { authenticate, type ServerContext } from "../context.js";
 import { isRecord } from "../utils/guards.js";
 import { searchCloudMemories } from "../services/search.service.js";
 import { checkRateLimit } from "../utils/rate-limit.js";
+import { sha256 } from "../../core/hash.js";
 
 export async function callMcp(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
-  if (!checkRateLimit(request, reply, "mcp.call", 120, 60_000)) {
+  if (!await checkRateLimit(request, reply, context, "mcp.call", 120, 60_000)) {
     return reply;
   }
 
@@ -93,6 +94,10 @@ export async function handleMcpRequest(database: CloudDatabase, userId: string, 
     }
 
     const search = await searchCloudMemories(database, userId, parsed.data);
+    await database.recordAuditEvent(userId, "mcp.search", {
+      queryHash: sha256(parsed.data.query),
+      resultCount: Array.isArray(search.results) ? search.results.length : undefined,
+    });
     return {
       jsonrpc: "2.0",
       id,

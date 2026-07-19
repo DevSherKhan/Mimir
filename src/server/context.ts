@@ -1,5 +1,6 @@
 import type { FastifyRequest } from "fastify";
 import type { CloudDatabase } from "../cloud/db/types.js";
+import { AUTH_COOKIE_NAME, cookieValue } from "./utils/auth-cookie.js";
 
 export interface ServerContext {
   cloudDatabase: CloudDatabase | null;
@@ -13,7 +14,11 @@ export async function authenticate(request: FastifyRequest, context: ServerConte
 
 export function bearerToken(request: FastifyRequest): string | null {
   const auth = request.headers.authorization ?? "";
-  return auth.startsWith("Bearer ") ? auth.slice("Bearer ".length).trim() : null;
+  if (auth.startsWith("Bearer ")) {
+    return auth.slice("Bearer ".length).trim();
+  }
+
+  return cookieValue(request.headers.cookie, AUTH_COOKIE_NAME);
 }
 
 export function baseUrl(request: FastifyRequest, fallbackPort: number): string {

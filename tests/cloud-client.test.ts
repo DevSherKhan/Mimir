@@ -53,4 +53,30 @@ describe("cloud client auth", () => {
       body: JSON.stringify(body),
     }));
   });
+
+  it("loads the dashboard summary with bearer auth", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({
+        userId: "user-1",
+        memoryCount: 2,
+        installIdentities: [],
+        recentMemories: [],
+        auditEvents: [],
+      }),
+    } as Response);
+
+    const client = createCloudClient("https://mimir.example.com");
+
+    await expect(client.getDashboardSummary("token-123")).resolves.toMatchObject({
+      userId: "user-1",
+      memoryCount: 2,
+    });
+    expect(fetchMock).toHaveBeenCalledWith("https://mimir.example.com/v1/dashboard", expect.objectContaining({
+      method: "GET",
+      headers: expect.objectContaining({
+        Authorization: "Bearer token-123",
+      }),
+    }));
+  });
 });

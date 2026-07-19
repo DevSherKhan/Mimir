@@ -4,17 +4,31 @@ export interface CloudDatabase {
   startDeviceLogin(baseUrl: string, installId: string, clientName?: string): Promise<DeviceLoginStart>;
   approveDeviceLogin(deviceCode: string): Promise<DeviceLoginApproval>;
   completeDeviceLogin(deviceCode: string): Promise<DeviceLoginComplete | null>;
+  createBearerToken(userId: string): Promise<DeviceLoginComplete>;
   userIdForBearerToken(token: string): Promise<string | null>;
   revokeBearerToken(token: string): Promise<boolean>;
   revokeAllBearerTokens(userId: string): Promise<number>;
   deleteInstallIdentity(userId: string, installId: string): Promise<boolean>;
   recordAuditEvent(userId: string | null, action: string, metadata?: Record<string, unknown>): Promise<void>;
+  consumeRateLimit(action: string, identifier: string, limit: number, windowMs: number): Promise<CloudRateLimitDecision>;
+  listAuditEvents(userId: string, limit: number): Promise<CloudAuditEvent[]>;
   insertMemoryBatch(userId: string, chunks: UploadMemoryChunkDto[]): Promise<string[]>;
   countMemories(userId: string): Promise<number>;
   deleteMemories(userId: string): Promise<number>;
   exportMemories(userId: string): Promise<CloudMemoryExport[]>;
   getDashboardSummary(userId: string): Promise<CloudDashboardSummary>;
   searchMemories(userId: string, embedding: number[], options: CloudSearchOptions): Promise<CloudSearchResult[]>;
+  close(): Promise<void>;
+}
+
+export class DeviceLoginStateError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "DeviceLoginStateError";
+  }
 }
 
 export interface DeviceLoginComplete {
@@ -77,4 +91,17 @@ export interface CloudDashboardSummary {
     lastSeenAt: string;
   }>;
   recentMemories: CloudMemoryExport[];
+  auditEvents: CloudAuditEvent[];
+}
+
+export interface CloudRateLimitDecision {
+  allowed: boolean;
+  retryAfterSeconds: number;
+}
+
+export interface CloudAuditEvent {
+  id: string;
+  action: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
 }

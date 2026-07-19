@@ -6,8 +6,8 @@ export function deviceApprovalHtml(code: string): string {
         Login code
         <input name="code" value="${escapeHtml(code)}" required />
       </label>
-      <p class="muted">This grants the local Mimir CLI access to your cloud memory account.</p>
-      <button type="submit">Approve login</button>
+      <p class="muted">Approval signs in the CLI and this browser to the same Mimir account.</p>
+      <button type="submit">Approve and continue</button>
     </form>
   `);
 }
@@ -28,6 +28,8 @@ export function pageHtml(title: string, content: string): string {
       input { background: white; font: inherit; padding: 10px 12px; border: 1px solid #d4d4d8; border-radius: 8px; }
       button { font: inherit; padding: 10px 14px; border: 0; border-radius: 8px; background: #18181b; color: white; cursor: pointer; }
       button:hover { background: #3f3f46; }
+      .button { display: inline-block; font: inherit; padding: 10px 14px; border-radius: 8px; background: #18181b; color: white; text-decoration: none; }
+      .button:hover { background: #3f3f46; }
       .lead { color: #3f3f46; }
       .muted { color: #555; font-size: 0.95rem; }
     </style>

@@ -1,10 +1,12 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { DeviceLoginStateError } from "../../cloud/db/types.js";
 import { completeDeviceLoginDtoSchema, startDeviceLoginDtoSchema } from "../../cloud/dto/auth.dto.js";
 import { authenticate, baseUrl, bearerToken, type ServerContext } from "../context.js";
 import { checkRateLimit } from "../utils/rate-limit.js";
+import { clearAuthCookie } from "../utils/auth-cookie.js";
 
 export async function startDeviceLogin(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
-  if (!checkRateLimit(request, reply, "auth.device.start", 20, 60_000)) {
+  if (!await checkRateLimit(request, reply, context, "auth.device.start", 20, 60_000)) {
     return reply;
   }
 
@@ -21,7 +23,7 @@ export async function startDeviceLogin(request: FastifyRequest, reply: FastifyRe
 }
 
 export async function completeDeviceLogin(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
-  if (!checkRateLimit(request, reply, "auth.device.complete", 60, 60_000)) {
+  if (!await checkRateLimit(request, reply, context, "auth.device.complete", 60, 60_000)) {
     return reply;
   }
 
@@ -34,16 +36,24 @@ export async function completeDeviceLogin(request: FastifyRequest, reply: Fastif
     return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "deviceCode is required" });
   }
 
-  const completed = await context.cloudDatabase.completeDeviceLogin(parsed.data.deviceCode);
-  if (!completed) {
-    return reply.code(428).send({ error: "Authorization pending" });
-  }
+  try {
+    const completed = await context.cloudDatabase.completeDeviceLogin(parsed.data.deviceCode);
+    if (!completed) {
+      return reply.code(428).send({ error: "Authorization pending. Approve the login code in your browser." });
+    }
 
-  return completed;
+    await context.cloudDatabase.recordAuditEvent(completed.userId, "auth.cli_login");
+    return completed;
+  } catch (error) {
+    if (error instanceof DeviceLoginStateError) {
+      return reply.code(error.statusCode).send({ error: error.message });
+    }
+    throw error;
+  }
 }
 
 export async function logout(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
-  if (!checkRateLimit(request, reply, "auth.logout", 20, 60_000)) {
+  if (!await checkRateLimit(request, reply, context, "auth.logout", 20, 60_000)) {
     return reply;
   }
 
@@ -59,13 +69,13 @@ export async function logout(request: FastifyRequest, reply: FastifyReply, conte
 
   await context.cloudDatabase.revokeBearerToken(token);
   await context.cloudDatabase.recordAuditEvent(userId, "auth.logout");
-  return {
+  return reply.header("Set-Cookie", clearAuthCookie(request)).send({
     revoked: true,
-  };
+  });
 }
 
 export async function revokeAllTokens(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
-  if (!checkRateLimit(request, reply, "auth.revoke_all", 5, 60_000)) {
+  if (!await checkRateLimit(request, reply, context, "auth.revoke_all", 5, 60_000)) {
     return reply;
   }
 
@@ -80,11 +90,11 @@ export async function revokeAllTokens(request: FastifyRequest, reply: FastifyRep
 
   const revoked = await context.cloudDatabase.revokeAllBearerTokens(userId);
   await context.cloudDatabase.recordAuditEvent(userId, "auth.revoke_all", { revoked });
-  return { revoked };
+  return reply.header("Set-Cookie", clearAuthCookie(request)).send({ revoked });
 }
 
 export async function deleteInstallIdentity(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
-  if (!checkRateLimit(request, reply, "auth.install.delete", 10, 60_000)) {
+  if (!await checkRateLimit(request, reply, context, "auth.install.delete", 10, 60_000)) {
     return reply;
   }
 

@@ -17,6 +17,23 @@ describe("cloud auth helpers", () => {
     })).toBeNull();
   });
 
+  it("does not enable a fallback development token", () => {
+    expect(userIdForDevToken("dev-token", {})).toBeNull();
+  });
+
+  it("disables development tokens in production unless explicitly allowed", () => {
+    const productionEnv = {
+      NODE_ENV: "production",
+      MIMIR_DEV_ACCESS_TOKEN: "secret-token",
+      MIMIR_DEV_USER_ID: "user-123",
+    };
+    expect(userIdForDevToken("secret-token", productionEnv)).toBeNull();
+    expect(userIdForDevToken("secret-token", {
+      ...productionEnv,
+      MIMIR_ALLOW_DEV_TOKEN: "true",
+    })).toBe("user-123");
+  });
+
   it("extracts bearer tokens from requests", () => {
     expect(bearerToken({
       headers: {
@@ -28,5 +45,13 @@ describe("cloud auth helpers", () => {
         authorization: "token-123",
       },
     } as never)).toBeNull();
+  });
+
+  it("extracts the HttpOnly browser session cookie", () => {
+    expect(bearerToken({
+      headers: {
+        cookie: "theme=light; mimir_session=mimir_browser_token; other=value",
+      },
+    } as never)).toBe("mimir_browser_token");
   });
 });

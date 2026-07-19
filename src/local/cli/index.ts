@@ -410,6 +410,12 @@ program
     const count = await client.getMemoryCount(credentials.accessToken);
     console.log(`Cloud API: ok (${count.count} chunks)`);
 
+    const dashboard = await client.getDashboardSummary(credentials.accessToken);
+    if (dashboard.userId !== count.userId || dashboard.memoryCount !== count.count) {
+      throw new Error("Dashboard summary does not match the authenticated cloud memory count.");
+    }
+    console.log("Dashboard API: ok");
+
     const initialized = await client.callMcp({
       jsonrpc: "2.0",
       id: "init",

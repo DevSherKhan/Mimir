@@ -24,6 +24,14 @@ export interface MemoryCountResponse {
   count: number;
 }
 
+export interface DashboardSummaryResponse {
+  userId: string;
+  memoryCount: number;
+  installIdentities: unknown[];
+  recentMemories: unknown[];
+  auditEvents: unknown[];
+}
+
 export interface LogoutResponse {
   revoked: boolean;
 }
@@ -44,6 +52,7 @@ export interface CloudClient {
   logout(accessToken: string): Promise<LogoutResponse>;
   uploadMemoryBatch(chunks: MemoryChunkUpload[], accessToken: string): Promise<UploadBatchResponse>;
   getMemoryCount(accessToken: string): Promise<MemoryCountResponse>;
+  getDashboardSummary(accessToken: string): Promise<DashboardSummaryResponse>;
   callMcp(body: Record<string, unknown>, accessToken: string): Promise<JsonRpcResponse>;
 }
 
@@ -91,6 +100,15 @@ export function createCloudClient(cloudUrl: string): CloudClient {
 
     async getMemoryCount(accessToken: string) {
       return requestJson<MemoryCountResponse>(`${cloudUrl}/v1/memories/count`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    },
+
+    async getDashboardSummary(accessToken: string) {
+      return requestJson<DashboardSummaryResponse>(`${cloudUrl}/v1/dashboard`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${accessToken}`,

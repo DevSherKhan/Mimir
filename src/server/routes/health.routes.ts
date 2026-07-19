@@ -4,5 +4,9 @@ import type { ServerContext } from "../context.js";
 
 export async function registerHealthRoutes(app: FastifyInstance, context: ServerContext): Promise<void> {
   app.get("/", async () => healthResponse(context));
-  app.get("/health", async () => healthResponse(context));
+  app.get("/health", async (_request, reply) => {
+    return reply
+      .code(context.cloudDatabase ? 200 : 503)
+      .send(healthResponse(context));
+  });
 }

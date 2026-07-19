@@ -3,9 +3,10 @@ import { uploadMemoryBatchDtoSchema, searchMemoriesQueryDtoSchema } from "../../
 import { authenticate, type ServerContext } from "../context.js";
 import { searchCloudMemories } from "../services/search.service.js";
 import { checkRateLimit } from "../utils/rate-limit.js";
+import { sha256 } from "../../core/hash.js";
 
 export async function uploadMemoryBatch(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
-  if (!checkRateLimit(request, reply, "memories.upload", 30, 60_000)) {
+  if (!await checkRateLimit(request, reply, context, "memories.upload", 30, 60_000)) {
     return reply;
   }
 
@@ -35,7 +36,7 @@ export async function uploadMemoryBatch(request: FastifyRequest, reply: FastifyR
 }
 
 export async function countMemories(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
-  if (!checkRateLimit(request, reply, "memories.count", 120, 60_000)) {
+  if (!await checkRateLimit(request, reply, context, "memories.count", 120, 60_000)) {
     return reply;
   }
 
@@ -55,7 +56,7 @@ export async function countMemories(request: FastifyRequest, reply: FastifyReply
 }
 
 export async function exportMemories(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
-  if (!checkRateLimit(request, reply, "memories.export", 10, 60_000)) {
+  if (!await checkRateLimit(request, reply, context, "memories.export", 10, 60_000)) {
     return reply;
   }
 
@@ -80,7 +81,7 @@ export async function exportMemories(request: FastifyRequest, reply: FastifyRepl
 }
 
 export async function deleteMemories(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
-  if (!checkRateLimit(request, reply, "memories.delete", 5, 60_000)) {
+  if (!await checkRateLimit(request, reply, context, "memories.delete", 5, 60_000)) {
     return reply;
   }
 
@@ -101,7 +102,7 @@ export async function deleteMemories(request: FastifyRequest, reply: FastifyRepl
 }
 
 export async function dashboardSummary(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
-  if (!checkRateLimit(request, reply, "dashboard.summary", 60, 60_000)) {
+  if (!await checkRateLimit(request, reply, context, "dashboard.summary", 60, 60_000)) {
     return reply;
   }
 
@@ -118,7 +119,7 @@ export async function dashboardSummary(request: FastifyRequest, reply: FastifyRe
 }
 
 export async function searchMemories(request: FastifyRequest, reply: FastifyReply, context: ServerContext) {
-  if (!checkRateLimit(request, reply, "memories.search", 60, 60_000)) {
+  if (!await checkRateLimit(request, reply, context, "memories.search", 60, 60_000)) {
     return reply;
   }
 
@@ -147,7 +148,7 @@ export async function searchMemories(request: FastifyRequest, reply: FastifyRepl
     until: query.until,
   });
   await context.cloudDatabase.recordAuditEvent(userId, "memories.search", {
-    query: query.query ?? query.q ?? "",
+    queryHash: sha256(query.query ?? query.q ?? ""),
     resultCount: Array.isArray(result.results) ? result.results.length : undefined,
   });
   return result;
