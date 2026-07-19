@@ -1,266 +1,90 @@
 # Mimir
 
-Mimir is a local-first AI chat memory index. It ingests local chat logs, chunks and embeds them, stores vectors in SQLite, and exposes search through a CLI and MCP server.
-
 [![CI](https://github.com/DevSherKhan/Mimir/actions/workflows/ci.yml/badge.svg)](https://github.com/DevSherKhan/Mimir/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/DevSherKhan/Mimir/actions/workflows/codeql.yml/badge.svg)](https://github.com/DevSherKhan/Mimir/actions/workflows/codeql.yml)
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 
-The MVP works without an OpenAI subscription by defaulting to deterministic development embeddings. These are useful for testing the pipeline, but they are not true semantic embeddings.
+Mimir gives your AI coding tools a searchable memory of past conversations. It indexes local Claude Code, Codex, and Cursor chats, redacts common secrets, and exposes the results through a CLI, an MCP server, and an optional self-hosted dashboard.
 
-## Prerequisites
+Mimir is local-first: your chat history stays on your machine unless you explicitly configure and run a cloud upload.
 
-Mimir is verified with Node.js 20.20.2. Using the repository's pinned version keeps native dependencies such as `better-sqlite3` on the correct Node ABI:
+## Features
+
+- Search conversations across Claude Code, Codex, and Cursor.
+- Filter results by source, session, workspace, and date.
+- Give MCP-compatible assistants access to a single search-only tool.
+- Run without an OpenAI API key using deterministic local embeddings.
+- Optionally upload sanitized chunks to your own hosted Mimir instance.
+- Browse cloud conversations through a responsive web dashboard.
+- Inspect and test the hosted API through OpenAPI and Swagger UI.
+
+## Requirements
+
+- Node.js 20 or newer
+- npm
+- PostgreSQL with pgvector only when self-hosting the cloud service
+
+## Install
+
+Install the npm package globally:
 
 ```bash
-nvm install
-nvm use
-npm install
+npm install --global mimir-chat-index
 ```
 
-If dependencies were installed under a different Node major version, switch back with `nvm use` and rebuild them:
+The package is named `mimir-chat-index`; the installed command is `mimir`.
 
 ```bash
-npm rebuild
-```
-
-## Commands
-
-```bash
-npm install
-npm run build
-npm run dev -- init
-npm run dev -- sync --source fixtures
-npm run dev -- sync --source codex
-npm run dev -- query "database migration"
-npm run dev -- status
-npm run dev -- upload --dry-run
-npm run dev -- mcp
-npm run dev -- doctor
-```
-
-Search can be filtered:
-
-```bash
-npm run dev -- query "database migration" --source codex
-npm run dev -- query "pricing bug" --source claude --since 2026-06-01
-npm run dev -- query "auth flow" --workspace /home/me/project --json
-```
-
-## Install the `mimir` Command Locally
-
-During development, link this project into your shell:
-
-```bash
-npm install
-npm run build
-npm link
-```
-
-Then run Mimir directly:
-
-```bash
-mimir help
-mimir init
-mimir sync --source fixtures
-mimir sync --source codex
-mimir query "database migration"
-mimir status
-mimir upload --dry-run
-mimir mcp
+mimir --version
 mimir doctor
 ```
 
-You can also inspect a specific command:
+## Quick start
+
+Create Mimir's private local data directory, index your chats, and search them:
 
 ```bash
-mimir help sync
-mimir help query
+mimir init
+mimir sync --source all
+mimir query "what did we decide about authentication?"
 ```
 
-If you change TypeScript source files, rebuild before using the linked `mimir` command again:
+Mimir automatically discovers supported chat history in its standard locations. You can index one source at a time:
 
 ```bash
-npm run build
-```
-
-## Configuration
-
-- `MIMIR_HOME`: overrides `~/.mimir`.
-- `MIMIR_EMBEDDING_PROVIDER`: `dev` or `openai`. Defaults to `dev`.
-- `OPENAI_API_KEY`: required only when `MIMIR_EMBEDDING_PROVIDER=openai`.
-- `MIMIR_CLOUD_URL`: hosted Mimir API URL. Defaults to `https://api.mimir.cloud`. HTTPS is required except for localhost development.
-- `DATABASE_URL`: PostgreSQL connection string for the hosted API.
-- `MIMIR_DOCS_ENABLED`: set to `false` to remove `/docs/` and `/openapi.json`.
-
-Copy the safe template for local development:
-
-```bash
-cp .env.example .env
-```
-
-Never commit `.env`; it is intentionally ignored.
-
-## Local Cloud Development
-
-Start PostgreSQL with pgvector, build Mimir, and launch the hosted service:
-
-```bash
-docker compose up -d postgres
-npm run build
-npm start
-```
-
-Then open:
-
-- Dashboard: `http://localhost:3000/dashboard`
-- Swagger UI: `http://localhost:3000/docs/`
-- OpenAPI JSON: `http://localhost:3000/openapi.json`
-- Health check: `http://localhost:3000/health`
-
-The server applies pending SQL migrations during startup. Stop local PostgreSQL with `docker compose down`; add `--volumes` only when you intentionally want to delete the development database.
-
-## Project Layout
-
-- `src/local/cli/index.ts`: local CLI entrypoint and npm bin target.
-- `src/config/`: shared runtime configuration.
-- `src/core/`: shared domain logic: chunking, hashing, search formatting, vectors, embeddings, and redaction.
-- `src/local/cli/`: local CLI commands.
-- `src/local/db/`: local SQLite storage and local vector search.
-- `src/local/ingest/`: source parsers for Claude Code, Codex, Cursor, files, and fixtures.
-- `src/local/mcp/`: local stdio MCP server.
-- `src/cloud/client/`: local client code for credentials, uploads, and hosted API calls.
-- `src/cloud/dto/`: zod-backed API and MCP data transfer objects.
-- `src/cloud/db/`: hosted Postgres connection, migrator, repositories, and DB types.
-- `cloud/migrations/`: versioned Postgres migrations for hosted Mimir Cloud.
-- `src/server/index.ts`: hosted server bootstrap and production entrypoint.
-- `src/server/`: Fastify hosted MCP/API app.
-- `src/server/routes/`: HTTP route definitions.
-- `src/server/controllers/`: request/response controllers.
-- `src/server/services/`: hosted business logic such as cloud memory search.
-- `src/server/openapi/`: the OpenAPI contract served by Swagger UI.
-- `src/server/views/`: login approval HTML.
-- `src/server/utils/`: small server-side guards/helpers.
-
-## Ingestion Sources
-
-- `mimir sync --source claude`: reads Claude Code JSONL transcripts.
-- `mimir sync --source codex`: reads Codex session JSONL, history, and session index records from `~/.codex`.
-- `mimir sync --source cursor`: reads Cursor workspace SQLite state read-only.
-- `mimir sync --source all`: reads Claude Code, Codex, and Cursor.
-- `mimir sync --source fixtures`: reads only local test fixtures.
-
-## Cloud Upload Mode
-
-Cloud mode is opt-in. The local agent still does all local file reading, redaction, chunking, and embedding. Mimir Cloud receives sanitized chunk records only; it never reads Claude, Codex, Cursor, or ChatGPT files directly from a user's machine.
-
-## Railway Deployment
-
-The repository includes `railway.json` with the production build, start command, `/health` deployment gate, and restart policy. The healthcheck returns HTTP 503 when `DATABASE_URL` is missing, so a database-less deployment will not be promoted as healthy.
-
-Production backup, monitoring, secret-rotation, audit-review, and restore procedures are documented in [`OPERATIONS.md`](OPERATIONS.md).
-
-Configure the Mimir service with:
-
-```text
-DATABASE_URL=${{Postgres.DATABASE_URL}}
-NODE_ENV=production
-HOST=0.0.0.0
-MIMIR_EMBEDDING_PROVIDER=dev
-```
-
-Railway supplies `PORT`. The database must support the `vector` and `pgcrypto` extensions used by the migrations. Do not configure `MIMIR_DEV_ACCESS_TOKEN` in production unless an explicit emergency development token is required; normal users authenticate through device login.
-
-After Railway reports a healthy deployment, verify the complete authenticated path from the local machine:
-
-```bash
-mimir logout
-mimir login --cloud-url https://YOUR-MIMIR-SERVICE.up.railway.app
 mimir sync --source codex
-mimir upload
-mimir cloud-smoke --query "Mimir Railway"
+mimir sync --source claude
+mimir sync --source cursor
 ```
 
-Then open:
+Run `mimir status` to see the local index and authentication state.
 
-```text
-https://YOUR-MIMIR-SERVICE.up.railway.app/dashboard
-```
+## Search
 
-Login through the browser:
+Use natural-language queries and add filters when you need a specific conversation:
 
 ```bash
-mimir login --cloud-url https://api.mimir.cloud
+mimir query "database migration"
+mimir query "pricing bug" --source claude --since 2026-06-01
+mimir query "auth flow" --workspace /path/to/project
+mimir query "release plan" --session SESSION_ID --json
 ```
 
-The CLI prints a URL and code. Open the URL, approve the login, and the CLI stores the token automatically.
+Useful options:
 
-If credentials already exist, `mimir login` refuses to overwrite them. Run `mimir logout` first, then log in again.
+| Option | Purpose |
+| --- | --- |
+| `--limit <number>` | Set the maximum number of results |
+| `--source <source>` | Filter by `claude`, `codex`, `cursor`, or `fixtures` |
+| `--session <id>` | Search within one session |
+| `--workspace <path>` | Search within one workspace |
+| `--since <timestamp>` | Include results after a date or Unix timestamp |
+| `--until <timestamp>` | Include results before a date or Unix timestamp |
+| `--json` | Return structured JSON |
 
-Mimir also stores a stable local install identity at `~/.mimir/install.json`. This is separate from the login token, so logging out removes credentials but keeps the install identity. Logging in again from the same machine creates a new token for the same cloud user instead of creating a new user.
+Use `mimir help query` for the complete command reference.
 
-For localhost development, use the same browser flow:
-
-```bash
-mimir login --cloud-url http://localhost:3000
-```
-
-Check local database and upload status:
-
-```bash
-mimir status
-mimir status --json
-```
-
-Clear local indexed memory while keeping cloud login and install identity:
-
-```bash
-mimir reset-local
-```
-
-This deletes only:
-
-- `~/.mimir/vault.db`
-- `~/.mimir/vault.db-wal`
-- `~/.mimir/vault.db-shm`
-
-It preserves:
-
-- `~/.mimir/install.json`
-- `~/.mimir/cloud-auth.json`
-
-Upload pending chunks explicitly:
-
-```bash
-mimir upload --dry-run
-mimir upload
-```
-
-Verify hosted API and MCP after deploy:
-
-```bash
-mimir cloud-smoke
-mimir cloud-smoke --query "database migration"
-```
-
-Or sync and upload in one command:
-
-```bash
-mimir sync --source all --upload
-```
-
-Upload behavior:
-
-- Stored credentials live at `~/.mimir/cloud-auth.json` with private permissions where supported.
-- `mimir logout` attempts to revoke the cloud token before removing local credentials.
-- Uploads default to the cloud URL used during login.
-- `--cloud-url` on `mimir upload` intentionally overrides the login URL.
-- `--force` re-sends chunks even if they were already marked uploaded locally.
-- Interactive uploads show live chunk and batch progress in the terminal.
-- Already uploaded chunks are tracked locally by cloud URL and content hash.
-- Raw external chat databases are never modified and never uploaded wholesale.
-
-## MCP Tool
+## Connect an MCP client
 
 Mimir exposes one local MCP tool:
 
@@ -268,68 +92,15 @@ Mimir exposes one local MCP tool:
 search_historical_chats
 ```
 
-Inputs:
+The tool accepts a query plus optional source, session, workspace, role, date, and result-limit filters. It is search-only and cannot modify local files or re-index conversations.
 
-- `query`: search text.
-- `limit`: optional result count, from 1 to 20.
-- `sourceTool`: optional source filter: `claude`, `claude-code`, `codex`, `cursor`, `fixture`, or `fixtures`.
-- `sessionId`: optional session filter.
-- `workspacePath`: optional workspace path filter.
-- `role`: optional role filter such as `user` or `assistant`.
-- `since`: optional ISO date, Unix seconds, or Unix milliseconds.
-- `until`: optional ISO date, Unix seconds, or Unix milliseconds.
-
-Output includes matched snippets with source, role, session id, workspace path, timestamp, score, distance, and content.
-
-## Security Defaults
-
-- External chat databases are opened read-only or copied before parsing.
-- Codex ingestion reads session/history files only and skips internal metadata records.
-- Secrets are redacted before text is stored or embedded.
-- App data is created with private permissions where the OS allows it.
-- MCP mode reserves stdout for JSON-RPC and sends diagnostics to stderr.
-
-## MCP Auth Model
-
-Mimir supports a local stdio MCP server:
-
-```bash
-mimir mcp
-```
-
-Claude Code and Codex start that command as a local child process. There is no public HTTP port, so there is no bearer-token or OAuth login layer in the current architecture. The security boundary is your local OS user account plus the private Mimir database permissions.
-
-Recommended setup:
-
-```bash
-chmod 700 ~/.mimir
-chmod 600 ~/.mimir/vault.db
-```
-
-## Local SQLite Tables
-
-The local database lives at `~/.mimir/vault.db`. In DataGrip, connect to that file as SQLite.
-
-Primary local tables:
-
-- `memory_messages`: redacted source messages and metadata.
-- `memory_chunks`: searchable text chunks with JSON fallback embeddings.
-- `memory_vectors`: sqlite-vec vector index for local semantic search.
-- `memory_uploads`: local record of chunks uploaded to a cloud URL.
-- `metadata`: local feature flags and schema metadata.
-
-Local auth files are stored beside the database, not inside SQLite:
-
-- `~/.mimir/install.json`
-- `~/.mimir/cloud-auth.json`
-
-For Claude Code:
+Add Mimir to Claude Code:
 
 ```bash
 claude mcp add mimir -- mimir mcp
 ```
 
-For Codex, add this to `~/.codex/config.toml`:
+Add Mimir to Codex in `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.mimir]
@@ -337,212 +108,179 @@ command = "mimir"
 args = ["mcp"]
 ```
 
-Hosted MCP is available at:
+For another MCP client, configure a local stdio server that runs:
 
-```text
-https://YOUR-RAILWAY-APP.up.railway.app/mcp
+```bash
+mimir mcp
 ```
 
-Hosted MCP requires a bearer token from `mimir login` and exposes only:
+Local MCP does not require a bearer token. The process runs under your OS user account and reads the private local Mimir database.
 
-```text
-search_historical_chats
-```
+## Commands
 
-The hosted MCP surface is search-only. It does not expose sync, reset, local file reads, or ingestion controls.
+| Command | Description |
+| --- | --- |
+| `mimir init` | Create the local Mimir data directory and database |
+| `mimir sync` | Index local AI chat history |
+| `mimir query <text>` | Search the local index |
+| `mimir mcp` | Start the local MCP server over stdio |
+| `mimir login` | Sign in to a hosted Mimir instance |
+| `mimir upload` | Upload pending sanitized chunks |
+| `mimir status` | Show local index and cloud authentication status |
+| `mimir doctor` | Diagnose the local installation |
+| `mimir logout` | Remove locally stored cloud credentials |
+| `mimir reset-local` | Reset local Mimir data |
 
-The Phase 2 cloud upload contract is represented by:
+Run `mimir help <command>` to inspect a command and its options.
 
-- `POST /v1/auth/device/start`
-- `POST /v1/auth/device/complete`
-- `POST /v1/auth/logout`
-- `POST /v1/auth/revoke-all`
-- `DELETE /v1/install-identities/:installId`
-- `POST /v1/memories/batch`
-- `GET /v1/memories/count`
-- `GET /v1/memories/export`
-- `GET /v1/memories/browse`
-- `GET /v1/memories/search`
-- `DELETE /v1/memories`
-- `GET /v1/dashboard`
-- `GET /v1/conversations`
-- `GET /v1/conversations/:sessionId`
-- `GET /v1/audit-logs`
-- `POST /mcp`
-- `cloud/migrations/001_init.sql` through `005_memory_full_text_search.sql` for Postgres, pgvector, full-text search, audit logs, and shared rate limiting.
+## Embeddings
 
-## Production Embeddings
-
-Development mode uses deterministic hash embeddings:
+Mimir defaults to deterministic development embeddings:
 
 ```env
 MIMIR_EMBEDDING_PROVIDER=dev
 ```
 
-This proves the pipeline but gives weak semantic quality. For production-quality search, use OpenAI embeddings:
+This mode requires no OpenAI subscription or API key. It is suitable for local setup and functional search, but its semantic ranking is less accurate than a production embedding model.
+
+To use OpenAI embeddings:
 
 ```env
 MIMIR_EMBEDDING_PROVIDER=openai
-OPENAI_API_KEY=sk-...
+OPENAI_API_KEY=your_api_key
 ```
 
-After changing providers, re-sync and upload so cloud memory contains vectors from the production model:
+Choose the provider before your first sync. Changing it later requires rebuilding the local index so every stored vector uses the same embedding model.
+
+## Optional cloud dashboard
+
+The cloud service is optional and self-hostable. Mimir sanitizes chat chunks locally before upload; uploads happen only when you request them.
+
+Sign in to your deployment:
 
 ```bash
-mimir reset-local
+mimir login --cloud-url https://mimir.example.com
+```
+
+Then sync and upload:
+
+```bash
 mimir sync --source all --upload
 ```
 
-## Railway Cloud API
-
-The hosted API uses Railway Postgres through `DATABASE_URL`. Set these variables on the Railway API service:
-
-```env
-DATABASE_URL=${{ Postgres.DATABASE_URL }}
-```
-
-Railway should run:
+You can also run the steps separately:
 
 ```bash
-npm run build
-npm start
-```
-
-Check the deployed API:
-
-```bash
-curl https://YOUR-RAILWAY-APP.up.railway.app/health
-```
-
-Upload from your laptop:
-
-```bash
-mimir login --cloud-url https://YOUR-RAILWAY-APP.up.railway.app
 mimir sync --source all
 mimir upload --dry-run
 mimir upload
 ```
 
-If you uploaded to an older dev server that accepted chunks before Postgres storage existed, re-send them once:
+Open `https://mimir.example.com/dashboard` to browse conversations and search uploaded memory. The dashboard uses the same device-login flow as the CLI and stores its browser session in an HttpOnly cookie.
+
+Hosted MCP is available at `https://mimir.example.com/mcp` and requires a bearer token obtained through `mimir login`.
+
+## Self-host Mimir
+
+For local cloud development:
 
 ```bash
-mimir upload --force --dry-run
-mimir upload --force
+git clone https://github.com/DevSherKhan/Mimir.git
+cd Mimir
+cp .env.example .env
+docker compose up -d postgres
+npm ci
+npm run build
+npm start
 ```
 
-Confirm the cloud stored memories:
+The service is available at:
+
+- Dashboard: [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
+- Swagger UI: [http://localhost:3000/docs/](http://localhost:3000/docs/)
+- OpenAPI document: [http://localhost:3000/openapi.json](http://localhost:3000/openapi.json)
+- Health check: [http://localhost:3000/health](http://localhost:3000/health)
+
+The repository includes a `Dockerfile`, `compose.yaml`, and `railway.json`. See [OPERATIONS.md](OPERATIONS.md) for deployment configuration, migrations, backups, health checks, and incident procedures.
+
+## Configuration
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `MIMIR_HOME` | Local data directory | `~/.mimir` |
+| `MIMIR_EMBEDDING_PROVIDER` | `dev` or `openai` | `dev` |
+| `OPENAI_API_KEY` | Required for OpenAI embeddings | — |
+| `MIMIR_CLOUD_URL` | Hosted Mimir API URL | `https://api.mimir.cloud` |
+| `DATABASE_URL` | PostgreSQL connection string for the hosted service | — |
+| `HOST` | Hosted service bind address | `0.0.0.0` |
+| `PORT` | Hosted service port | `3000` |
+| `MIMIR_DOCS_ENABLED` | Enable Swagger UI and the OpenAPI endpoint | `true` |
+
+Copy [`.env.example`](.env.example) when running the hosted service locally. HTTPS is required for non-local cloud URLs.
+
+## Privacy and security
+
+- Chat data stays local until you explicitly upload it.
+- Common secret patterns are redacted before content is stored, embedded, or uploaded.
+- External chat databases are opened read-only or copied before parsing.
+- Local Mimir files use private permissions where the operating system supports them.
+- MCP diagnostics go to stderr so stdout remains reserved for JSON-RPC.
+- Hosted search and memory endpoints require authenticated access.
+
+The local database and cloud credentials live under `~/.mimir` by default. Do not commit or share that directory. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
+
+## Development
 
 ```bash
-mimir status
+git clone https://github.com/DevSherKhan/Mimir.git
+cd Mimir
+nvm use
+npm ci
+npm run check
 ```
 
-Open the dashboard:
-
-```text
-https://YOUR-RAILWAY-APP.up.railway.app/dashboard
-```
-
-The dashboard no longer asks users to expose or paste a bearer token. If the browser is signed out, it shows the exact `mimir login` command and accepts the short approval code. Approval signs the CLI and browser into the same Mimir user, then stores the browser session in an HttpOnly, same-site cookie.
-
-The product dashboard uses shadcn/ui-style source components and includes overview, conversation, hybrid search, activity, and settings sections. Conversations have readable derived titles, chronological detail, and cursor pagination. Search combines PostgreSQL full-text ranking with vector similarity, groups matches by conversation, highlights matching terms, and supports source, session, workspace, role, and date filters.
-
-Browser sign-in flow:
-
-1. Open `/dashboard`.
-2. Run the command shown on the sign-in card.
-3. Approve the code in the page opened by the CLI, or enter it directly on the dashboard.
-4. The dashboard loads the matching user's cloud memories automatically.
-
-Dashboard actions:
-
-- Export uploaded cloud memory as JSON.
-- Delete uploaded cloud memory.
-- Revoke the current token.
-- Revoke all tokens for the user.
-- Remove an install identity.
-
-For developer debugging only, the count endpoint accepts the stored bearer token from `~/.mimir/cloud-auth.json`:
+Run commands directly from the TypeScript source during development:
 
 ```bash
-curl -H "Authorization: Bearer YOUR_STORED_TOKEN" \
-  https://YOUR-RAILWAY-APP.up.railway.app/v1/memories/count
+npm run dev -- sync --source all
+npm run dev -- query "database migration"
+npm run dev -- mcp
 ```
 
-The count endpoint returns the number of stored chunks for the authenticated user.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and pull-request expectations.
 
-Search cloud memory:
+## Troubleshooting
+
+Start with:
 
 ```bash
-curl -H "Authorization: Bearer YOUR_STORED_TOKEN" \
-  "https://YOUR-RAILWAY-APP.up.railway.app/v1/memories/search?query=database%20migration&limit=5"
-```
-
-Hosted MCP endpoint:
-
-```text
-https://YOUR-RAILWAY-APP.up.railway.app/mcp
-```
-
-## API Documentation
-
-Swagger UI is served at `/docs/`, with the OpenAPI 3.1 document at `/openapi.json`. Protected endpoints accept either a bearer token or the HttpOnly dashboard session cookie. Use a token obtained through the CLI device-login flow for Swagger authorization, and never paste production credentials into a shared browser.
-
-Disable the documentation surface when required by deployment policy:
-
-```env
-MIMIR_DOCS_ENABLED=false
-```
-
-The contract lives in `src/server/openapi/document.ts`. API changes must update the contract and its tests in the same pull request.
-
-## Contributing and Security
-
-Mimir is open source under the [ISC license](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for development expectations, [SECURITY.md](SECURITY.md) for private vulnerability reporting, [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community standards, and [GOVERNANCE.md](GOVERNANCE.md) for project decision-making.
-
-## Troubleshooting MCP Startup
-
-If Claude, Codex, Cursor, or another MCP client reports:
-
-```text
-Connection failed: MCP error -32000: Connection closed
-The module ... was compiled against a different Node.js version
-```
-
-then `mimir mcp` is crashing before the MCP handshake. This usually happens when `better-sqlite3` was installed with one Node version but the MCP client starts Mimir with another Node version.
-
-Use one Node 20+ binary consistently:
-
-```bash
-node --version
-which node
 mimir doctor
 ```
 
-If Node comes from Snap, install Node 20+ another way such as `nvm`, then rebuild:
+If a native dependency was installed under a different Node.js version, reinstall Mimir using the active Node 20+ environment:
 
 ```bash
-cd /home/sher-khan/Projects/Mimir
-nvm use
-npm ci
-npm run build
-npm link
+npm uninstall --global mimir-chat-index
+npm install --global mimir-chat-index
+mimir doctor
 ```
 
-If the MCP client cannot find the same `node` binary, configure the MCP server with absolute paths:
+If you are developing from source, run `nvm use`, `npm rebuild`, and `npm run build`.
 
-```json
-{
-  "mcpServers": {
-    "mimir": {
-      "command": "/absolute/path/to/node",
-      "args": ["/home/sher-khan/Projects/Mimir/dist/local/cli/index.js", "mcp"]
-    }
-  }
-}
-```
-
-You can generate a config snippet using the exact Node binary that is running Mimir:
+For command-specific help:
 
 ```bash
-mimir doctor --mcp-json
+mimir help
+mimir help sync
+mimir help query
 ```
+
+## Community
+
+Mimir is open source under the [ISC license](LICENSE).
+
+- [Contributing guide](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security policy](SECURITY.md)
+- [Governance](GOVERNANCE.md)
+- [Changelog](CHANGELOG.md)
