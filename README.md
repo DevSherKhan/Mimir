@@ -9,7 +9,10 @@ Mimir gives your AI coding tools a searchable memory of past conversations. It i
 
 Mimir is local-first: your chat history stays on your machine unless you explicitly configure and run a cloud upload.
 
-Read the complete guides at [devsherkhan.github.io/Mimir](https://devsherkhan.github.io/Mimir/).
+## Links
+
+- Documentation: [devsherkhan.github.io/Mimir](https://devsherkhan.github.io/Mimir/)
+- GitHub: [github.com/DevSherKhan/Mimir](https://github.com/DevSherKhan/Mimir)
 
 ## Features
 
