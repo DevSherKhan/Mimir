@@ -1,6 +1,6 @@
 {
   "name": "mimir-chat-index",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Local-first AI chat memory index exposed through a CLI and MCP server.",
   "keywords": [
     "ai",
