@@ -10,7 +10,6 @@ interface SyncCommandOptions {
   codexDir?: string;
   cursorDir?: string;
   fixtureDir?: string;
-  upload?: boolean;
 }
 
 type SyncSource = "all" | "claude" | "codex" | "cursor" | "fixtures";
@@ -25,21 +24,11 @@ interface QueryCommandOptions {
   json?: boolean;
 }
 
-interface LoginCommandOptions {
-  cloudUrl?: string;
-  token?: string;
-}
-
-interface UploadCommandOptions {
-  limit: string;
-  batchSize: string;
-  dryRun?: boolean;
-  force?: boolean;
-  cloudUrl?: string;
-}
-
-interface CloudSmokeCommandOptions {
-  query?: string;
+interface AddMcpCommandOptions {
+  all?: boolean;
+  claude?: boolean;
+  codex?: boolean;
+  cursor?: boolean;
 }
 
 const program = new Command();
@@ -52,7 +41,8 @@ program
   .addHelpText("after", `
 Examples:
   $ mimir init
-  $ mimir sync --source fixtures
+  $ mimir sync --source all
+  $ mimir add-mcp --all
   $ mimir query "memory index"
   $ mimir help sync`);
 
@@ -77,13 +67,11 @@ program
   .option("--codex-dir <path>", "Override Codex home directory")
   .option("--cursor-dir <path>", "Override Cursor workspaceStorage directory")
   .option("--fixture-dir <path>", "Read .jsonl/.txt fixtures from a directory")
-  .option("--upload", "Upload pending sanitized chunks after sync")
   .action(async (options: SyncCommandOptions) => {
     const { getMimirConfig } = await import("../../config/index.js");
     const { openMimirDatabase } = await import("../db/sqlite.js");
     const { createEmbeddingProvider } = await import("../../core/embeddings/provider.js");
     const { syncMessages } = await import("../sync.js");
-    const { uploadPendingChunks } = await import("../../cloud/client/upload.js");
     const source = parseSource(options.source);
     const config = getMimirConfig();
     const provider = createEmbeddingProvider(config.embeddingProvider);
@@ -108,26 +96,6 @@ program
       console.log(`Discovered messages: ${result.discovered}`);
       console.log(`Inserted messages: ${result.insertedMessages}`);
       console.log(`Inserted chunks: ${result.insertedChunks}`);
-
-      if (options.upload) {
-        const { createUploadProgressBar } = await import("./progress.js");
-        const progressBar = createUploadProgressBar();
-        let uploadResult;
-        try {
-          uploadResult = await uploadPendingChunks({
-            homeDir: config.homeDir,
-            db: database.db,
-            limit: 500,
-            batchSize: 100,
-            dryRun: false,
-            force: false,
-            onProgress: (progress) => progressBar.update(progress),
-          });
-        } finally {
-          progressBar.stop();
-        }
-        console.log(`Uploaded chunks: ${uploadResult.uploaded}/${uploadResult.selected}`);
-      }
     } finally {
       database.close();
     }
@@ -197,97 +165,23 @@ program
   });
 
 program
-  .command("login")
-  .description("Store cloud credentials for upload.")
-  .option("--cloud-url <url>", "Mimir Cloud API URL")
-  .option("--token <token>", "Store an existing bearer token without device flow")
-  .action(async (options: LoginCommandOptions) => {
-    const { getMimirConfig } = await import("../../config/index.js");
-    const { isExpired, readCredentials, writeCredentials } = await import("../../cloud/client/credentials.js");
-    const { getOrCreateInstallIdentity } = await import("../../cloud/client/install.js");
-    const { createCloudClient } = await import("../../cloud/client/cloud-client.js");
-    const config = getMimirConfig({
-      ...process.env,
-      MIMIR_CLOUD_URL: options.cloudUrl ?? process.env.MIMIR_CLOUD_URL,
-    });
-    const existingCredentials = readCredentials(config.homeDir);
-    if (existingCredentials && !isExpired(existingCredentials)) {
-      throw new Error(`Already logged in to ${existingCredentials.cloudUrl}. Run mimir logout before logging in again.`);
-    }
-
-    if (options.token) {
-      writeCredentials(config.homeDir, {
-        cloudUrl: config.cloudUrl,
-        accessToken: options.token,
-        createdAt: Date.now(),
-      });
-      console.log(`Stored cloud credentials for ${config.cloudUrl}`);
-      return;
-    }
-
-    const client = createCloudClient(config.cloudUrl);
-    const install = getOrCreateInstallIdentity(config.homeDir);
-    const start = await client.startDeviceLogin(install.installId);
-    console.log(`Open: ${start.verificationUri}`);
-    console.log(`Code: ${start.userCode}`);
-    const opened = await openBrowser(start.verificationUri);
-    if (opened) {
-      console.log("Opened browser for approval.");
-    }
-    console.log("Waiting for browser approval...");
-
-    const intervalMs = Math.max(1, start.interval ?? 5) * 1000;
-    const expiresAt = Date.now() + Math.max(60, start.expiresIn ?? 600) * 1000;
-    while (Date.now() < expiresAt) {
-      const completed = await client.completeDeviceLogin(start.deviceCode);
-      if (completed) {
-        writeCredentials(config.homeDir, {
-          cloudUrl: config.cloudUrl,
-          accessToken: completed.accessToken,
-          userId: completed.userId,
-          expiresAt: completed.expiresAt,
-          createdAt: Date.now(),
-        });
-        console.log(`Logged in to ${config.cloudUrl}`);
-        return;
-      }
-      await sleep(intervalMs);
-    }
-
-    throw new Error("Device login expired before completion.");
-  });
-
-program
-  .command("logout")
-  .description("Remove stored cloud credentials.")
-  .action(async () => {
-    const { getMimirConfig } = await import("../../config/index.js");
-    const { clearCredentials, readCredentials } = await import("../../cloud/client/credentials.js");
-    const { createCloudClient } = await import("../../cloud/client/cloud-client.js");
-    const config = getMimirConfig();
-    const credentials = readCredentials(config.homeDir);
-    let cloudRevoked = false;
-
-    if (credentials) {
-      try {
-        const result = await createCloudClient(credentials.cloudUrl).logout(credentials.accessToken);
-        cloudRevoked = Boolean(result.revoked);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.warn(`Could not revoke cloud token: ${message}`);
-      }
-    }
-
-    clearCredentials(config.homeDir);
-    console.log("Removed stored cloud credentials.");
-    if (cloudRevoked) {
-      console.log("Revoked cloud token.");
+  .command("add-mcp")
+  .description("Configure Mimir MCP in Claude Code, Codex, and/or Cursor.")
+  .option("--all", "Configure Claude Code, Codex, and Cursor")
+  .option("--claude", "Configure Claude Code")
+  .option("--codex", "Configure Codex")
+  .option("--cursor", "Configure Cursor")
+  .action(async (options: AddMcpCommandOptions) => {
+    const { addMcpToTools } = await import("./add-mcp.js");
+    const ok = await addMcpToTools(options);
+    if (!ok) {
+      process.exitCode = 1;
     }
   });
 
 program
   .command("reset-local")
-  .description("Clear local indexed memory while preserving cloud login and install identity.")
+  .description("Clear local indexed memory and recreate an empty database.")
   .action(async () => {
     const { getMimirConfig } = await import("../../config/index.js");
     const { resetLocalDatabase } = await import("../db/reset.js");
@@ -304,36 +198,28 @@ program
     } else {
       console.log("No existing database files were found.");
     }
-    console.log("Preserved install identity and cloud credentials.");
   });
 
 program
   .command("status")
-  .description("Show local database and cloud-auth status.")
+  .description("Show local database status.")
   .option("--json", "Print structured JSON status")
   .action(async (options: { json?: boolean }) => {
     const { getMimirConfig } = await import("../../config/index.js");
-    const { readCredentials, isExpired } = await import("../../cloud/client/credentials.js");
-    const { createCloudClient } = await import("../../cloud/client/cloud-client.js");
     const { getLocalStats, openMimirDatabase } = await import("../db/sqlite.js");
     const config = getMimirConfig();
-    const credentials = readCredentials(config.homeDir);
     const database = openMimirDatabase(config.dbPath);
 
     try {
-      const stats = getLocalStats(database.db, credentials?.cloudUrl ?? config.cloudUrl);
-      const loggedIn = Boolean(credentials && !isExpired(credentials));
-      const cloud = loggedIn && credentials
-        ? await readCloudStatus(createCloudClient(credentials.cloudUrl), credentials.accessToken)
-        : undefined;
+      const stats = getLocalStats(database.db);
       const status = {
         homeDir: config.homeDir,
         dbPath: config.dbPath,
-        cloudUrl: credentials?.cloudUrl ?? config.cloudUrl,
-        loggedIn,
-        userId: credentials?.userId,
-        cloud,
-        stats,
+        embeddingProvider: config.embeddingProvider,
+        stats: {
+          messages: stats.messages,
+          chunks: stats.chunks,
+        },
       };
 
       if (options.json) {
@@ -343,135 +229,11 @@ program
 
       console.log(`Home: ${status.homeDir}`);
       console.log(`Database: ${status.dbPath}`);
-      console.log(`Cloud: ${status.cloudUrl}`);
-      console.log(`Logged in: ${status.loggedIn ? "yes" : "no"}`);
-      if (status.userId) {
-        console.log(`User: ${status.userId}`);
-      }
-      if (status.cloud?.ok) {
-        console.log(`Cloud chunks: ${status.cloud.count}`);
-      } else if (status.cloud) {
-        console.log(`Cloud status: ${status.cloud.error}`);
-      }
+      console.log(`Embeddings: ${status.embeddingProvider}`);
       console.log(`Messages: ${status.stats.messages}`);
       console.log(`Chunks: ${status.stats.chunks}`);
-      console.log(`Uploaded chunks: ${status.stats.uploadedChunks}`);
-      console.log(`Pending uploads: ${status.stats.pendingUploads}`);
     } finally {
       database.close();
-    }
-  });
-
-program
-  .command("upload")
-  .description("Upload pending sanitized memory chunks to Mimir Cloud.")
-  .option("--limit <number>", "Maximum chunks to upload", "500")
-  .option("--batch-size <number>", "Chunks per request", "100")
-  .option("--cloud-url <url>", "Override Mimir Cloud API URL")
-  .option("--dry-run", "Show how many chunks would upload without sending data")
-  .option("--force", "Re-upload chunks even if they were already marked uploaded locally")
-  .action(async (options: UploadCommandOptions) => {
-    const { getMimirConfig } = await import("../../config/index.js");
-    const { openMimirDatabase } = await import("../db/sqlite.js");
-    const { uploadPendingChunks } = await import("../../cloud/client/upload.js");
-    const config = getMimirConfig({
-      ...process.env,
-      MIMIR_CLOUD_URL: options.cloudUrl ?? process.env.MIMIR_CLOUD_URL,
-    });
-    const database = openMimirDatabase(config.dbPath);
-
-    try {
-      const { createUploadProgressBar } = await import("./progress.js");
-      const progressBar = createUploadProgressBar();
-      let result;
-      try {
-        result = await uploadPendingChunks({
-          homeDir: config.homeDir,
-          db: database.db,
-          cloudUrl: options.cloudUrl ? config.cloudUrl : undefined,
-          limit: parseLimit(options.limit, 1, 10_000),
-          batchSize: parseLimit(options.batchSize, 1, 500),
-          dryRun: Boolean(options.dryRun),
-          force: Boolean(options.force),
-          onProgress: (progress) => progressBar.update(progress),
-        });
-      } finally {
-        progressBar.stop();
-      }
-
-      if (result.dryRun) {
-        console.log(`Would upload ${result.selected} chunks to ${result.cloudUrl}${options.force ? " (force)" : ""}`);
-      } else {
-        console.log(`Uploaded ${result.uploaded}/${result.selected} chunks to ${result.cloudUrl}${options.force ? " (force)" : ""}`);
-      }
-    } finally {
-      database.close();
-    }
-  });
-
-program
-  .command("cloud-smoke")
-  .description("Verify hosted cloud API and MCP with stored credentials.")
-  .option("--query <text>", "Optional hosted MCP search query")
-  .action(async (options: CloudSmokeCommandOptions) => {
-    const { getMimirConfig } = await import("../../config/index.js");
-    const { readCredentials } = await import("../../cloud/client/credentials.js");
-    const { createCloudClient } = await import("../../cloud/client/cloud-client.js");
-    const config = getMimirConfig();
-    const credentials = readCredentials(config.homeDir);
-    if (!credentials) {
-      throw new Error("Not logged in. Run mimir login first.");
-    }
-
-    const client = createCloudClient(credentials.cloudUrl);
-    const count = await client.getMemoryCount(credentials.accessToken);
-    console.log(`Cloud API: ok (${count.count} chunks)`);
-
-    const dashboard = await client.getDashboardSummary(credentials.accessToken);
-    if (dashboard.userId !== count.userId || dashboard.memoryCount !== count.count) {
-      throw new Error("Dashboard summary does not match the authenticated cloud memory count.");
-    }
-    console.log("Dashboard API: ok");
-
-    const initialized = await client.callMcp({
-      jsonrpc: "2.0",
-      id: "init",
-      method: "initialize",
-      params: {},
-    }, credentials.accessToken);
-    if (initialized.error) {
-      throw new Error(`MCP initialize failed: ${initialized.error.message}`);
-    }
-    console.log("MCP initialize: ok");
-
-    const tools = await client.callMcp({
-      jsonrpc: "2.0",
-      id: "tools",
-      method: "tools/list",
-      params: {},
-    }, credentials.accessToken);
-    if (tools.error) {
-      throw new Error(`MCP tools/list failed: ${tools.error.message}`);
-    }
-    console.log("MCP tools/list: ok");
-
-    if (options.query) {
-      const search = await client.callMcp({
-        jsonrpc: "2.0",
-        id: "search",
-        method: "tools/call",
-        params: {
-          name: "search_historical_chats",
-          arguments: {
-            query: options.query,
-            limit: 3,
-          },
-        },
-      }, credentials.accessToken);
-      if (search.error) {
-        throw new Error(`MCP search failed: ${search.error.message}`);
-      }
-      console.log("MCP search_historical_chats: ok");
     }
   });
 
@@ -521,43 +283,4 @@ function parseLimit(value: string, min = 1, max = 20): number {
   }
 
   return parsed;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-async function readCloudStatus(client: { getMemoryCount(accessToken: string): Promise<{ count: number }> }, accessToken: string): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
-  try {
-    const result = await client.getMemoryCount(accessToken);
-    return { ok: true, count: result.count };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { ok: false, error: message };
-  }
-}
-
-async function openBrowser(url: string): Promise<boolean> {
-  const { spawn } = await import("node:child_process");
-  const command = process.platform === "darwin"
-    ? "open"
-    : process.platform === "win32"
-      ? "cmd"
-      : "xdg-open";
-  const args = process.platform === "win32"
-    ? ["/c", "start", "", url]
-    : [url];
-
-  try {
-    const child = spawn(command, args, {
-      detached: true,
-      stdio: "ignore",
-    });
-    child.unref();
-    return true;
-  } catch {
-    return false;
-  }
 }

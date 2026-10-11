@@ -151,9 +151,18 @@ export function applySchema(db: Database.Database, vectorIndexAvailable: boolean
   );
 }
 
-export function getLocalStats(db: Database.Database, cloudUrl: string): LocalStats {
+export function getLocalStats(db: Database.Database, cloudUrl?: string): LocalStats {
   const messages = getCount(db, "memory_messages");
   const chunks = getCount(db, "memory_chunks");
+  if (!cloudUrl) {
+    return {
+      messages,
+      chunks,
+      uploadedChunks: 0,
+      pendingUploads: 0,
+    };
+  }
+
   const uploadedChunks = db.prepare("SELECT COUNT(*) AS count FROM memory_uploads WHERE cloud_url = ?").get(cloudUrl) as { count: number };
 
   return {

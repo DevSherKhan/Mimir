@@ -1,5 +1,7 @@
 # Mimir Production Operations
 
+> **Status:** Experimental / frozen. The supported product path is the local CLI + MCP package (`mimir init`, `sync`, `query`, `mcp`, `add-mcp`). Cloud API, dashboard, and upload flows remain in the repository for future work, but are not part of the current user install path.
+
 This checklist covers the Railway settings that cannot be enforced by application code.
 
 ## Required service configuration

@@ -1,7 +1,6 @@
 import {
   ArrowRight,
   Bot,
-  Cloud,
   Database,
   GitFork,
   Search,
@@ -75,9 +74,8 @@ function HomePage() {
               <span className="prompt">$</span> npm install -g mimir-chat-index{"\n"}
               <span className="prompt">$</span> mimir init{"\n"}
               <span className="prompt">$</span> mimir sync --source all{"\n"}
-              <span className="success">✓ Indexed your AI chat history</span>
-              {"\n"}
-              <span className="prompt">$</span> mimir query "authentication decision"
+              <span className="prompt">$</span> mimir add-mcp --all{"\n"}
+              <span className="success">✓ Memory ready in your AI tools</span>
             </code>
           </pre>
         </div>
@@ -87,7 +85,7 @@ function HomePage() {
         <div className="section-heading">
           <span>One memory layer</span>
           <h2>Built for the way developers use AI</h2>
-          <p>Start entirely local, then add cloud access only when your workflow needs it.</p>
+          <p>Install once, sync local chats, and let your AI tools search them through MCP.</p>
         </div>
         <div className="feature-grid">
           <article>
@@ -98,7 +96,7 @@ function HomePage() {
           <article>
             <ShieldCheck aria-hidden="true" />
             <h3>Local by default</h3>
-            <p>Chat history stays on your machine unless you explicitly upload it.</p>
+            <p>Chat history stays on your machine in a private local database.</p>
           </article>
           <article>
             <Bot aria-hidden="true" />
@@ -106,9 +104,9 @@ function HomePage() {
             <p>Give compatible assistants a focused, search-only historical chat tool.</p>
           </article>
           <article>
-            <Cloud aria-hidden="true" />
-            <h3>Optional cloud</h3>
-            <p>Self-host a searchable dashboard for sanitized, uploaded memories.</p>
+            <Terminal aria-hidden="true" />
+            <h3>One-command setup</h3>
+            <p>Use <code>mimir add-mcp</code> to wire Claude Code, Codex, and Cursor.</p>
           </article>
         </div>
       </section>
@@ -133,8 +131,8 @@ function HomePage() {
           <ArrowRight aria-hidden="true" className="flow-arrow" />
           <div>
             <Database aria-hidden="true" />
-            <strong>Search anywhere</strong>
-            <span>Use the local CLI, MCP, or your optional hosted dashboard.</span>
+            <strong>Search from your tools</strong>
+            <span>Use the local CLI or the MCP tool from Claude Code, Codex, or Cursor.</span>
           </div>
         </div>
       </section>
@@ -148,17 +146,17 @@ function HomePage() {
           <DocsLink to="/guide/quick-start/">
             <small>5 minutes</small>
             <strong>Index your first chats</strong>
-            <span>Initialize Mimir, sync supported sources, and search the result.</span>
+            <span>Initialize Mimir, sync supported sources, and wire MCP.</span>
           </DocsLink>
           <DocsLink to="/integrations/mcp/">
             <small>Integration</small>
             <strong>Connect an MCP client</strong>
-            <span>Add historical chat search to Claude Code, Codex, or another client.</span>
+            <span>Add historical chat search to Claude Code, Codex, or Cursor.</span>
           </DocsLink>
-          <DocsLink to="/self-hosting/deployment/">
-            <small>Optional cloud</small>
-            <strong>Self-host the dashboard</strong>
-            <span>Run PostgreSQL locally or deploy the service to Railway.</span>
+          <DocsLink to="/guide/search/">
+            <small>Search</small>
+            <strong>Query from the terminal</strong>
+            <span>Filter by source, session, workspace, or date when you need precision.</span>
           </DocsLink>
         </div>
       </section>
@@ -240,13 +238,14 @@ function QuickStartPage() {
           <CodeBlock>mimir sync --source all</CodeBlock>
           <p>You can sync one source by replacing <code>all</code> with <code>claude</code>, <code>codex</code>, or <code>cursor</code>.</p>
         </Step>
-        <Step title="Search the index">
-          <CodeBlock>mimir query "what did we decide about authentication?"</CodeBlock>
-          <p>Results include the matched content, source, session, workspace, timestamp, and score.</p>
+        <Step title="Connect your AI tools">
+          <p>Configure the local MCP server in Claude Code, Codex, and Cursor.</p>
+          <CodeBlock>mimir add-mcp --all</CodeBlock>
+          <p>Restart those tools, then ask about a past decision in chat.</p>
         </Step>
-        <Step title="Check local status">
-          <CodeBlock>mimir status</CodeBlock>
-          <p>Status reports indexed message counts, searchable chunks, embedding mode, and cloud login state.</p>
+        <Step title="Search from the terminal">
+          <CodeBlock>mimir query "what did we decide about authentication?"</CodeBlock>
+          <p>Results include the matched content, source, session, workspace, timestamp, and score. Use <code>mimir status</code> to inspect index counts.</p>
         </Step>
       </Steps>
       <Callout title="Sync is incremental">
@@ -323,9 +322,9 @@ mimir query "migration" --since 2026-06-01 --until 2026-07-01`}</CodeBlock>
             description: "See every query option and supported timestamp format.",
           },
           {
-            to: "/cloud/dashboard/",
-            title: "Dashboard search",
-            description: "Search uploaded memory through the browser.",
+            to: "/integrations/mcp/",
+            title: "MCP integration",
+            description: "Let your AI assistant search Mimir directly.",
           },
         ]}
       />
@@ -345,7 +344,13 @@ function McpPage() {
         <p>Mimir exposes one focused local tool:</p>
         <CodeBlock language="text">search_historical_chats</CodeBlock>
         <p>
-          It accepts a query and optional source, session, workspace, role, date, and limit filters. The tool is search-only: it cannot sync chats, reset data, or read arbitrary local files.
+          It accepts a query and optional source, session, workspace, date, and limit filters. The tool is search-only: it cannot sync chats, reset data, or read arbitrary local files.
+        </p>
+      </Section>
+      <Section id="one-command-setup" title="One-command setup">
+        <CodeBlock>mimir add-mcp --all</CodeBlock>
+        <p>
+          This configures Claude Code, Codex, and Cursor when those tools are installed. Use <code>--claude</code>, <code>--codex</code>, or <code>--cursor</code> to target one client.
         </p>
       </Section>
       <Section id="claude-code" title="Claude Code">
@@ -358,6 +363,17 @@ function McpPage() {
 command = "mimir"
 args = ["mcp"]`}</CodeBlock>
       </Section>
+      <Section id="cursor" title="Cursor">
+        <p>Add the server to <code>~/.cursor/mcp.json</code>:</p>
+        <CodeBlock language="json">{`{
+  "mcpServers": {
+    "mimir": {
+      "command": "mimir",
+      "args": ["mcp"]
+    }
+  }
+}`}</CodeBlock>
+      </Section>
       <Section id="other-clients" title="Other MCP clients">
         <p>Configure a local stdio MCP server with:</p>
         <CodeBlock>mimir mcp</CodeBlock>
@@ -369,16 +385,13 @@ args = ["mcp"]`}</CodeBlock>
         <Callout title="Private local process" type="security">
           Local MCP opens no public HTTP port and needs no bearer token. Its security boundary is your OS user account and the permissions on the local Mimir directory.
         </Callout>
-        <p>
-          Hosted MCP is a separate endpoint at <code>/mcp</code>. It requires cloud authentication and can search only memory uploaded for the authenticated user.
-        </p>
       </Section>
       <NextSteps
         links={[
           {
             to: "/reference/security/",
             title: "Security model",
-            description: "Review local and hosted trust boundaries.",
+            description: "Review local trust boundaries.",
           },
           {
             to: "/help/troubleshooting/",
@@ -395,12 +408,12 @@ function CloudDashboardPage() {
   return (
     <>
       <PageIntro
-        eyebrow="Cloud"
+        eyebrow="Experimental"
         title="Cloud dashboard"
-        description="Upload sanitized memory to a Mimir deployment and search conversations from a signed-in browser."
+        description="Frozen experimental surface. The supported product path is local CLI + MCP."
       />
-      <Callout title="The cloud is optional" type="security">
-        Local indexing and MCP work without a hosted service. Uploads happen only when you configure a cloud URL and request an upload.
+      <Callout title="Not part of the supported install path" type="warning">
+        Cloud login, upload, hosted MCP, and the dashboard remain in the repository for future work. Current releases focus on local sync and local MCP.
       </Callout>
       <Section id="sign-in" title="Sign in">
         <CodeBlock>mimir login --cloud-url https://mimir.example.com</CodeBlock>
@@ -453,10 +466,13 @@ function SelfHostingPage() {
   return (
     <>
       <PageIntro
-        eyebrow="Self-host"
+        eyebrow="Experimental"
         title="Self-hosting"
-        description="Run the optional cloud API and dashboard with PostgreSQL and pgvector."
+        description="Frozen experimental surface for the optional cloud API and dashboard."
       />
+      <Callout title="Not part of the supported install path" type="warning">
+        Prefer the local npm package for end users. This page documents experimental self-host code still in the repository.
+      </Callout>
       <Section id="local-cloud-development" title="Local cloud development">
         <CodeBlock>{`git clone https://github.com/DevSherKhan/Mimir.git
 cd Mimir
@@ -526,36 +542,19 @@ function ConfigurationPage() {
       <PageIntro
         eyebrow="Reference"
         title="Configuration"
-        description="Configure the local CLI, embedding provider, cloud client, and hosted service through environment variables."
+        description="Configure the local CLI and embedding provider through environment variables."
       />
-      <Section id="local-and-cloud-client" title="Local and cloud client">
+      <Section id="local-client" title="Local CLI">
         <div className="table-wrap">
           <table>
             <thead><tr><th>Variable</th><th>Purpose</th><th>Default</th></tr></thead>
             <tbody>
-              <tr><td><code>MIMIR_HOME</code></td><td>Local database and credential directory</td><td><code>~/.mimir</code></td></tr>
+              <tr><td><code>MIMIR_HOME</code></td><td>Local database directory</td><td><code>~/.mimir</code></td></tr>
               <tr><td><code>MIMIR_EMBEDDING_PROVIDER</code></td><td><code>dev</code> or <code>openai</code></td><td><code>dev</code></td></tr>
               <tr><td><code>OPENAI_API_KEY</code></td><td>Required only for OpenAI embeddings</td><td>—</td></tr>
-              <tr><td><code>MIMIR_CLOUD_URL</code></td><td>Hosted Mimir API URL</td><td><code>https://api.mimir.cloud</code></td></tr>
             </tbody>
           </table>
         </div>
-        <p>Non-local cloud URLs must use HTTPS. Localhost and <code>127.0.0.1</code> may use HTTP for development.</p>
-      </Section>
-      <Section id="hosted-service" title="Hosted service">
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>Variable</th><th>Purpose</th><th>Default</th></tr></thead>
-            <tbody>
-              <tr><td><code>DATABASE_URL</code></td><td>PostgreSQL connection string</td><td>Not configured</td></tr>
-              <tr><td><code>HOST</code></td><td>Server bind address</td><td><code>0.0.0.0</code></td></tr>
-              <tr><td><code>PORT</code></td><td>Server port</td><td><code>3000</code></td></tr>
-              <tr><td><code>MIMIR_DOCS_ENABLED</code></td><td>Serve Swagger and OpenAPI</td><td><code>true</code></td></tr>
-              <tr><td><code>NODE_ENV</code></td><td>Runtime environment</td><td>—</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p>Start local server configuration from the repository's <code>.env.example</code>.</p>
       </Section>
       <Section id="embedding-providers" title="Embedding providers">
         <CodeBlock language="env">{`# Subscription-free local mode
@@ -576,9 +575,9 @@ OPENAI_API_KEY=your_api_key`}</CodeBlock>
             description: "Learn which configuration values are sensitive.",
           },
           {
-            to: "/self-hosting/deployment/",
-            title: "Production deployment",
-            description: "Apply this configuration to a hosted service.",
+            to: "/guide/quick-start/",
+            title: "Quick start",
+            description: "Apply this configuration and index your first chats.",
           },
         ]}
       />
@@ -592,16 +591,18 @@ function CliPage() {
       <PageIntro
         eyebrow="Reference"
         title="CLI reference"
-        description="The Mimir CLI manages the local index, search, MCP process, and optional cloud connection."
+        description="The Mimir CLI manages the local index, search, and MCP process."
       />
-      <Section id="local-index" title="Local index commands">
+      <Section id="local-index" title="Commands">
         <div className="command-grid">
           <CommandCard command="mimir init">Create the local directory and SQLite database.</CommandCard>
           <CommandCard command="mimir sync">Index supported local AI chat history.</CommandCard>
           <CommandCard command="mimir query <text>">Search indexed conversation chunks.</CommandCard>
-          <CommandCard command="mimir status">Show index and cloud authentication status.</CommandCard>
+          <CommandCard command="mimir add-mcp">Configure MCP in Claude Code, Codex, and/or Cursor.</CommandCard>
+          <CommandCard command="mimir mcp">Run the local MCP server over stdio.</CommandCard>
+          <CommandCard command="mimir status">Show local index status.</CommandCard>
           <CommandCard command="mimir doctor">Diagnose Node.js, SQLite, and native dependencies.</CommandCard>
-          <CommandCard command="mimir reset-local">Clear indexed memory while preserving cloud login and install identity.</CommandCard>
+          <CommandCard command="mimir reset-local">Clear indexed memory and recreate an empty database.</CommandCard>
         </div>
       </Section>
       <Section id="sync-options" title="Sync options">
@@ -611,8 +612,7 @@ function CliPage() {
 --claude-dir <path>    Override the Claude Code JSONL directory
 --codex-dir <path>     Override the Codex home directory
 --cursor-dir <path>    Override Cursor workspaceStorage
---fixture-dir <path>   Read development fixtures
---upload               Upload pending sanitized chunks after sync`}</CodeBlock>
+--fixture-dir <path>   Read development fixtures`}</CodeBlock>
       </Section>
       <Section id="query-options" title="Query options">
         <CodeBlock>{`mimir query [options] <text>
@@ -625,16 +625,13 @@ function CliPage() {
 --until <timestamp>    ISO date, Unix seconds, or milliseconds
 --json                 Structured JSON output`}</CodeBlock>
       </Section>
-      <Section id="cloud-commands" title="Cloud commands">
-        <div className="command-grid">
-          <CommandCard command="mimir login">Run device login or store an existing token.</CommandCard>
-          <CommandCard command="mimir logout">Remove local cloud credentials.</CommandCard>
-          <CommandCard command="mimir upload">Upload pending sanitized chunks in batches.</CommandCard>
-          <CommandCard command="mimir cloud-smoke">Verify an authenticated cloud deployment.</CommandCard>
-        </div>
-        <CodeBlock>{`mimir upload --dry-run
-mimir upload --limit 500 --batch-size 100
-mimir upload --force`}</CodeBlock>
+      <Section id="add-mcp-options" title="add-mcp options">
+        <CodeBlock>{`mimir add-mcp [options]
+
+--all                  Configure Claude Code, Codex, and Cursor (default when no flags are set)
+--claude               Configure Claude Code
+--codex                Configure Codex
+--cursor               Configure Cursor`}</CodeBlock>
       </Section>
       <Section id="mcp-command" title="MCP command">
         <CodeBlock>mimir mcp</CodeBlock>
@@ -649,10 +646,13 @@ function ApiPage() {
   return (
     <>
       <PageIntro
-        eyebrow="Reference"
+        eyebrow="Experimental"
         title="API and OpenAPI"
-        description="Inspect the hosted contract in Swagger UI and authenticate cloud memory operations with device-login credentials."
+        description="Frozen experimental cloud API docs. Not part of the supported install path."
       />
+      <Callout title="Not part of the supported install path" type="warning">
+        Current releases focus on the local CLI and stdio MCP. This page documents experimental hosted API code still in the repository.
+      </Callout>
       <Section id="interactive-documentation" title="Interactive documentation">
         <p>On a running Mimir service:</p>
         <ul>
@@ -698,11 +698,11 @@ function SecurityPage() {
       <PageIntro
         eyebrow="Reference"
         title="Privacy and security"
-        description="Mimir keeps local operation private by default and makes cloud transfer an explicit user action."
+        description="Mimir keeps operation private by default: chats stay local and MCP is search-only."
       />
       <Section id="local-first-boundary" title="Local-first boundary">
         <ul>
-          <li>Chat history stays on your machine until you explicitly upload.</li>
+          <li>Chat history stays on your machine in the local Mimir database.</li>
           <li>External chat databases are opened read-only or copied before parsing.</li>
           <li>Local files receive private permissions where the operating system supports them.</li>
           <li>Local MCP opens no public network port.</li>
@@ -710,10 +710,10 @@ function SecurityPage() {
       </Section>
       <Section id="redaction" title="Redaction">
         <p>
-          Common secret patterns are redacted before content is stored, embedded, or uploaded. Redaction reduces accidental exposure but is not a substitute for reviewing what you send to a hosted service.
+          Common secret patterns are redacted before content is stored or embedded.
         </p>
         <Callout title="Never share Mimir data files" type="warning">
-          Do not commit or attach <code>~/.mimir</code>, <code>vault.db</code>, <code>cloud-auth.json</code>, chat exports, database URLs, or access tokens.
+          Do not commit or attach <code>~/.mimir</code>, <code>vault.db</code>, chat exports, or access tokens.
         </Callout>
       </Section>
       <Section id="local-storage" title="Local storage">

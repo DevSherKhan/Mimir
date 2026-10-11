@@ -1,0 +1,3 @@
+[mcp_servers.mimir]
+command = "mimir"
+args = ["mcp"]

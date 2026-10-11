@@ -32,10 +32,10 @@
     "mimir": "dist/local/cli/index.js"
   },
   "scripts": {
-    "build": "npm run clean && npm run build:dashboard && tsc -p tsconfig.json",
+    "build": "npm run clean && tsc -p tsconfig.json",
     "build:dashboard": "node ./node_modules/vite/bin/vite.js build --config dashboard/vite.config.ts",
     "build:docs": "node ./node_modules/vite/bin/vite.js build --config docs/vite.config.ts",
-    "check": "npm run typecheck && npm test && npm run build && npm run build:docs",
+    "check": "npm run typecheck && npm test && npm run build",
     "clean": "node -e \"const fs = require('node:fs'); for (const path of ['dist', 'dist-dashboard', 'dist-docs']) fs.rmSync(path, { recursive: true, force: true })\"",
     "dev": "tsx src/local/cli/index.ts",
     "dev:dashboard": "node ./node_modules/vite/bin/vite.js --config dashboard/vite.config.ts",
@@ -45,8 +45,10 @@
     "prepack": "npm run check",
     "release:check": "npm run check && npm pack --dry-run --ignore-scripts --cache .tmp/npm-cache",
     "preview:docs": "node ./node_modules/vite/bin/vite.js preview --config docs/vite.config.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p dashboard/tsconfig.json --noEmit && tsc -p docs/tsconfig.json --noEmit",
-    "test": "vitest run"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:all": "tsc -p tsconfig.json --noEmit && tsc -p dashboard/tsconfig.json --noEmit && tsc -p docs/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:local": "vitest run tests/claude.test.ts tests/codex.test.ts tests/cursor.test.ts tests/search.test.ts tests/redact.test.ts tests/chunk.test.ts tests/embedding.test.ts tests/local-db-schema.test.ts tests/local-db-reset.test.ts tests/fixtures.test.ts tests/config.test.ts tests/progress.test.ts tests/version.test.ts"
   },
   "engines": {
     "node": ">=20"
@@ -67,6 +69,7 @@
     "pg": "^8.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "smol-toml": "^1.9.1",
     "sqlite-vec": "^0.1.6",
     "swagger-ui-dist": "^5.29.4",
     "tailwind-merge": "^3.5.0",
@@ -88,8 +91,6 @@
   "license": "ISC",
   "files": [
     "dist/",
-    "dist-dashboard/",
-    "cloud/migrations/",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"

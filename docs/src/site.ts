@@ -29,9 +29,9 @@ export const pages: PageMeta[] = [
   {
     path: "/guide/quick-start/",
     title: "Quick start",
-    description: "Index your first conversations and run a local search.",
+    description: "Index your chats, wire MCP, and search from your AI tools.",
     section: "Get started",
-    keywords: ["init", "sync", "query", "status"],
+    keywords: ["init", "sync", "add-mcp", "query", "status"],
   },
   {
     path: "/guide/search/",
@@ -43,44 +43,44 @@ export const pages: PageMeta[] = [
   {
     path: "/integrations/mcp/",
     title: "MCP integration",
-    description: "Connect Mimir to Claude Code, Codex, or another MCP client.",
+    description: "Connect Mimir to Claude Code, Codex, Cursor, or another MCP client.",
     section: "Integrations",
-    keywords: ["mcp", "claude", "codex", "stdio", "tool"],
+    keywords: ["mcp", "add-mcp", "claude", "codex", "cursor", "stdio", "tool"],
   },
   {
     path: "/cloud/dashboard/",
-    title: "Cloud dashboard",
-    description: "Upload sanitized memory and browse it from the optional dashboard.",
-    section: "Cloud",
-    keywords: ["dashboard", "upload", "login", "cloud", "browser"],
+    title: "Cloud dashboard (experimental)",
+    description: "Frozen experimental cloud/dashboard surface. Not part of the supported install path.",
+    section: "Experimental",
+    keywords: ["dashboard", "upload", "login", "cloud", "browser", "experimental"],
   },
   {
     path: "/self-hosting/deployment/",
-    title: "Self-hosting",
-    description: "Run Mimir with PostgreSQL locally or deploy it to Railway.",
-    section: "Self-host",
-    keywords: ["deploy", "postgres", "pgvector", "railway", "docker"],
+    title: "Self-hosting (experimental)",
+    description: "Frozen experimental self-host surface for the optional cloud API.",
+    section: "Experimental",
+    keywords: ["deploy", "postgres", "pgvector", "railway", "docker", "experimental"],
   },
   {
     path: "/reference/configuration/",
     title: "Configuration",
-    description: "Environment variables for local, cloud, and production usage.",
+    description: "Environment variables for the local CLI and embeddings.",
     section: "Reference",
-    keywords: ["environment", "config", "variables", "openai", "database"],
+    keywords: ["environment", "config", "variables", "openai"],
   },
   {
     path: "/reference/cli/",
     title: "CLI reference",
     description: "Commands and options exposed by the Mimir command-line interface.",
     section: "Reference",
-    keywords: ["command", "flags", "sync", "query", "upload", "login"],
+    keywords: ["command", "flags", "sync", "query", "add-mcp", "mcp"],
   },
   {
     path: "/reference/api/",
-    title: "API and OpenAPI",
-    description: "Use Swagger UI, the OpenAPI contract, and authenticated cloud endpoints.",
-    section: "Reference",
-    keywords: ["api", "swagger", "openapi", "http", "endpoint"],
+    title: "API and OpenAPI (experimental)",
+    description: "Frozen experimental cloud API docs. Not part of the supported install path.",
+    section: "Experimental",
+    keywords: ["api", "swagger", "openapi", "http", "endpoint", "experimental"],
   },
   {
     path: "/reference/security/",
@@ -92,9 +92,9 @@ export const pages: PageMeta[] = [
   {
     path: "/help/troubleshooting/",
     title: "Troubleshooting",
-    description: "Resolve installation, native dependency, search, dashboard, and upload issues.",
+    description: "Resolve installation, native dependency, sync, search, and MCP issues.",
     section: "Help",
-    keywords: ["help", "error", "sqlite", "node", "database", "404"],
+    keywords: ["help", "error", "sqlite", "node", "database", "mcp"],
   },
   {
     path: "/community/contributing/",
@@ -105,7 +105,7 @@ export const pages: PageMeta[] = [
   },
 ];
 
-const navigationOrder = ["Get started", "Integrations", "Cloud", "Self-host", "Reference", "Help", "Community"];
+const navigationOrder = ["Get started", "Integrations", "Reference", "Help", "Community", "Experimental"];
 
 export const navigation: NavigationGroup[] = navigationOrder.map((title) => ({
   title,

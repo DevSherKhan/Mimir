@@ -12,6 +12,9 @@ export async function runMcpServer(): Promise<void> {
   const provider = createEmbeddingProvider(config.embeddingProvider);
   const database = openMimirDatabase(config.dbPath);
 
+  console.error(`[Mimir MCP] Starting server with ${provider.name} embeddings...`);
+  console.error(`[Mimir MCP] Database: ${config.dbPath}`);
+
   const server = new McpServer({
     name: "mimir",
     version: "0.1.0",
@@ -60,5 +63,6 @@ export async function runMcpServer(): Promise<void> {
   );
 
   const transport = new StdioServerTransport();
+  console.error(`[Mimir MCP] Server ready, listening on stdio`);
   await server.connect(transport);
 }

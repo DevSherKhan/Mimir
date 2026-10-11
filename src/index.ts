@@ -1,10 +1,10 @@
 export { chunkText } from "./core/chunk.js";
 export { getMimirConfig } from "./config/index.js";
-export { openMimirDatabase, searchChunks } from "./local/db/sqlite.js";
+export { openMimirDatabase, searchChunks, getLocalStats } from "./local/db/sqlite.js";
 export { createEmbeddingProvider } from "./core/embeddings/provider.js";
 export { redactSecrets } from "./core/security/redact.js";
 export { formatSearchResponse, formatSearchResult, normalizeSourceTool, parseOptionalTimestamp } from "./core/search.js";
 export { formatDoctorReport, recommendedMcpJson, runDoctor } from "./local/doctor.js";
-export { readCredentials, writeCredentials, clearCredentials } from "./cloud/client/credentials.js";
-export { createCloudClient } from "./cloud/client/cloud-client.js";
-export { uploadPendingChunks } from "./cloud/client/upload.js";
+export { syncMessages } from "./local/sync.js";
+export { runMcpServer } from "./local/mcp/stdio-server.js";
+export { addMcpToTools } from "./local/cli/add-mcp.js";

@@ -136,8 +136,8 @@ export function recommendedMcpJson(): string {
   return JSON.stringify({
     mcpServers: {
       mimir: {
-        command: process.execPath,
-        args: [`${import.meta.dirname}/cli.js`, "mcp"],
+        command: "mimir",
+        args: ["mcp"],
       },
     },
   }, null, 2);

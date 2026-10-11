@@ -1,5 +1,18 @@
 # Mimir Product Plan: Local Agent + Cloud MCP
 
+## Current focus (v1)
+
+Ship the local user path first:
+
+```text
+npm i -g mimir-chat-index
+mimir init
+mimir sync --source all
+mimir add-mcp --all
+```
+
+Cloud API, dashboard, upload, and hosted MCP remain in-repo as experimental/frozen work.
+
 ## Summary
 
 Mimir should be built as a local memory agent plus an optional cloud MCP service.

@@ -5,9 +5,9 @@
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-online-176b50.svg)](https://devsherkhan.github.io/Mimir/)
 
-Mimir gives your AI coding tools a searchable memory of past conversations. It indexes local Claude Code, Codex, and Cursor chats, redacts common secrets, and exposes the results through a CLI, an MCP server, and an optional self-hosted dashboard.
+Mimir gives your AI coding tools a searchable memory of past conversations. It indexes local Claude Code, Codex, and Cursor chats, redacts common secrets, and exposes search through a CLI and a local MCP server.
 
-Mimir is local-first: your chat history stays on your machine unless you explicitly configure and run a cloud upload.
+Mimir is local-first: your chat history stays on your machine.
 
 ## Links
 
@@ -18,21 +18,16 @@ Mimir is local-first: your chat history stays on your machine unless you explici
 
 - Search conversations across Claude Code, Codex, and Cursor.
 - Filter results by source, session, workspace, and date.
-- Give MCP-compatible assistants access to a single search-only tool.
+- Give MCP-compatible assistants one search-only tool: `search_historical_chats`.
+- One-command MCP setup for Claude Code, Codex, and Cursor.
 - Run without an OpenAI API key using deterministic local embeddings.
-- Optionally upload sanitized chunks to your own hosted Mimir instance.
-- Browse cloud conversations through a responsive web dashboard.
-- Inspect and test the hosted API through OpenAPI and Swagger UI.
 
 ## Requirements
 
 - Node.js 20 or newer
 - npm
-- PostgreSQL with pgvector only when self-hosting the cloud service
 
 ## Install
-
-Install the npm package globally:
 
 ```bash
 npm install --global mimir-chat-index
@@ -47,15 +42,21 @@ mimir doctor
 
 ## Quick start
 
-Create Mimir's private local data directory, index your chats, and search them:
-
 ```bash
 mimir init
 mimir sync --source all
+mimir add-mcp --all
+```
+
+Then ask your AI tool something like: “What did we decide about authentication?”
+
+You can also search from the terminal:
+
+```bash
 mimir query "what did we decide about authentication?"
 ```
 
-Mimir automatically discovers supported chat history in its standard locations. You can index one source at a time:
+Index one source at a time when you want:
 
 ```bash
 mimir sync --source codex
@@ -63,11 +64,11 @@ mimir sync --source claude
 mimir sync --source cursor
 ```
 
-Run `mimir status` to see the local index and authentication state.
+Cursor ingest is best-effort because Cursor storage formats change. Claude Code and Codex session logs are the most reliable sources.
+
+Run `mimir status` to see the local index.
 
 ## Search
-
-Use natural-language queries and add filters when you need a specific conversation:
 
 ```bash
 mimir query "database migration"
@@ -76,19 +77,15 @@ mimir query "auth flow" --workspace /path/to/project
 mimir query "release plan" --session SESSION_ID --json
 ```
 
-Useful options:
-
 | Option | Purpose |
 | --- | --- |
-| `--limit <number>` | Set the maximum number of results |
-| `--source <source>` | Filter by `claude`, `codex`, `cursor`, or `fixtures` |
+| `--limit <number>` | Maximum number of results |
+| `--source <source>` | `claude`, `codex`, `cursor`, or `fixtures` |
 | `--session <id>` | Search within one session |
 | `--workspace <path>` | Search within one workspace |
-| `--since <timestamp>` | Include results after a date or Unix timestamp |
-| `--until <timestamp>` | Include results before a date or Unix timestamp |
-| `--json` | Return structured JSON |
-
-Use `mimir help query` for the complete command reference.
+| `--since <timestamp>` | Results after a date or Unix timestamp |
+| `--until <timestamp>` | Results before a date or Unix timestamp |
+| `--json` | Structured JSON output |
 
 ## Connect an MCP client
 
@@ -98,23 +95,45 @@ Mimir exposes one local MCP tool:
 search_historical_chats
 ```
 
-The tool accepts a query plus optional source, session, workspace, role, date, and result-limit filters. It is search-only and cannot modify local files or re-index conversations.
+The tool accepts a query plus optional source, session, workspace, date, and result-limit filters. It is search-only and cannot modify local files or re-index conversations.
 
-Add Mimir to Claude Code:
+Easiest setup:
 
 ```bash
-claude mcp add mimir -- mimir mcp
+mimir add-mcp --all
 ```
 
-Add Mimir to Codex in `~/.codex/config.toml`:
+Or configure one tool:
 
-```toml
+```bash
+mimir add-mcp --claude
+mimir add-mcp --codex
+mimir add-mcp --cursor
+```
+
+Manual setup:
+
+```bash
+# Claude Code
+claude mcp add mimir -- mimir mcp
+
+# Codex (~/.codex/config.toml)
 [mcp_servers.mimir]
 command = "mimir"
 args = ["mcp"]
+
+# Cursor (~/.cursor/mcp.json)
+{
+  "mcpServers": {
+    "mimir": {
+      "command": "mimir",
+      "args": ["mcp"]
+    }
+  }
+}
 ```
 
-For another MCP client, configure a local stdio server that runs:
+Or run the server yourself:
 
 ```bash
 mimir mcp
@@ -130,14 +149,12 @@ Local MCP does not require a bearer token. The process runs under your OS user a
 | `mimir sync` | Index local AI chat history |
 | `mimir query <text>` | Search the local index |
 | `mimir mcp` | Start the local MCP server over stdio |
-| `mimir login` | Sign in to a hosted Mimir instance |
-| `mimir upload` | Upload pending sanitized chunks |
-| `mimir status` | Show local index and cloud authentication status |
+| `mimir add-mcp` | Configure MCP in Claude Code, Codex, and/or Cursor |
+| `mimir status` | Show local index status |
 | `mimir doctor` | Diagnose the local installation |
-| `mimir logout` | Remove locally stored cloud credentials |
 | `mimir reset-local` | Reset local Mimir data |
 
-Run `mimir help <command>` to inspect a command and its options.
+Run `mimir help <command>` for command options.
 
 ## Embeddings
 
@@ -158,57 +175,6 @@ OPENAI_API_KEY=your_api_key
 
 Choose the provider before your first sync. Changing it later requires rebuilding the local index so every stored vector uses the same embedding model.
 
-## Optional cloud dashboard
-
-The cloud service is optional and self-hostable. Mimir sanitizes chat chunks locally before upload; uploads happen only when you request them.
-
-Sign in to your deployment:
-
-```bash
-mimir login --cloud-url https://mimir.example.com
-```
-
-Then sync and upload:
-
-```bash
-mimir sync --source all --upload
-```
-
-You can also run the steps separately:
-
-```bash
-mimir sync --source all
-mimir upload --dry-run
-mimir upload
-```
-
-Open `https://mimir.example.com/dashboard` to browse conversations and search uploaded memory. The dashboard uses the same device-login flow as the CLI and stores its browser session in an HttpOnly cookie.
-
-Hosted MCP is available at `https://mimir.example.com/mcp` and requires a bearer token obtained through `mimir login`.
-
-## Self-host Mimir
-
-For local cloud development:
-
-```bash
-git clone https://github.com/DevSherKhan/Mimir.git
-cd Mimir
-cp .env.example .env
-docker compose up -d postgres
-npm ci
-npm run build
-npm start
-```
-
-The service is available at:
-
-- Dashboard: [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
-- Swagger UI: [http://localhost:3000/docs/](http://localhost:3000/docs/)
-- OpenAPI document: [http://localhost:3000/openapi.json](http://localhost:3000/openapi.json)
-- Health check: [http://localhost:3000/health](http://localhost:3000/health)
-
-The repository includes a `Dockerfile`, `compose.yaml`, and `railway.json`. See [OPERATIONS.md](OPERATIONS.md) for deployment configuration, migrations, backups, health checks, and incident procedures.
-
 ## Configuration
 
 | Variable | Description | Default |
@@ -216,24 +182,16 @@ The repository includes a `Dockerfile`, `compose.yaml`, and `railway.json`. See 
 | `MIMIR_HOME` | Local data directory | `~/.mimir` |
 | `MIMIR_EMBEDDING_PROVIDER` | `dev` or `openai` | `dev` |
 | `OPENAI_API_KEY` | Required for OpenAI embeddings | — |
-| `MIMIR_CLOUD_URL` | Hosted Mimir API URL | `https://api.mimir.cloud` |
-| `DATABASE_URL` | PostgreSQL connection string for the hosted service | — |
-| `HOST` | Hosted service bind address | `0.0.0.0` |
-| `PORT` | Hosted service port | `3000` |
-| `MIMIR_DOCS_ENABLED` | Enable Swagger UI and the OpenAPI endpoint | `true` |
-
-Copy [`.env.example`](.env.example) when running the hosted service locally. HTTPS is required for non-local cloud URLs.
 
 ## Privacy and security
 
-- Chat data stays local until you explicitly upload it.
-- Common secret patterns are redacted before content is stored, embedded, or uploaded.
+- Chat data stays local on your machine.
+- Common secret patterns are redacted before content is stored or embedded.
 - External chat databases are opened read-only or copied before parsing.
 - Local Mimir files use private permissions where the operating system supports them.
 - MCP diagnostics go to stderr so stdout remains reserved for JSON-RPC.
-- Hosted search and memory endpoints require authenticated access.
 
-The local database and cloud credentials live under `~/.mimir` by default. Do not commit or share that directory. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
+The local database lives under `~/.mimir` by default. Do not commit or share that directory. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
 
 ## Development
 
@@ -245,15 +203,18 @@ npm ci
 npm run check
 ```
 
-Run commands directly from the TypeScript source during development:
+Run commands from TypeScript during development:
 
 ```bash
 npm run dev -- sync --source all
 npm run dev -- query "database migration"
 npm run dev -- mcp
+npm run dev -- add-mcp --all
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and pull-request expectations.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow.
+
+Cloud API, dashboard, and self-hosting code remains in the repository as experimental/frozen work and is not part of the supported user install path. See [OPERATIONS.md](OPERATIONS.md) if you explore that surface.
 
 ## Troubleshooting
 
@@ -273,12 +234,10 @@ mimir doctor
 
 If you are developing from source, run `nvm use`, `npm rebuild`, and `npm run build`.
 
-For command-specific help:
-
 ```bash
 mimir help
 mimir help sync
-mimir help query
+mimir help add-mcp
 ```
 
 ## Community
