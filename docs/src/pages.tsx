@@ -358,13 +358,20 @@ function McpPage() {
         <p>Restart Claude Code if it was already running, then inspect its configured MCP servers.</p>
       </Section>
       <Section id="codex" title="Codex">
-        <p>Add the server to <code>~/.codex/config.toml</code>:</p>
+        <p>Preferred: use the Codex CLI helper (writes <code>~/.codex/config.toml</code>):</p>
+        <CodeBlock>codex mcp add mimir -- mimir mcp</CodeBlock>
+        <p>Or edit <code>~/.codex/config.toml</code> directly:</p>
         <CodeBlock language="toml">{`[mcp_servers.mimir]
 command = "mimir"
 args = ["mcp"]`}</CodeBlock>
+        <p>
+          Start a new Codex session after changing config. Confirm with <code>codex mcp list</code>.
+          The <code>mimir</code> command must be on your PATH. Prefer the global{" "}
+          <code>~/.codex/config.toml</code>; a project <code>.codex/config.toml</code> loads only for trusted projects.
+        </p>
       </Section>
       <Section id="cursor" title="Cursor">
-        <p>Add the server to <code>~/.cursor/mcp.json</code>:</p>
+        <p>Add the server to the global Cursor MCP config at <code>~/.cursor/mcp.json</code> (or a project <code>.cursor/mcp.json</code>):</p>
         <CodeBlock language="json">{`{
   "mcpServers": {
     "mimir": {
@@ -373,6 +380,7 @@ args = ["mcp"]`}</CodeBlock>
     }
   }
 }`}</CodeBlock>
+        <p>Restart Cursor, then check Customize → MCP / Output → MCP Logs if the server does not appear.</p>
       </Section>
       <Section id="other-clients" title="Other MCP clients">
         <p>Configure a local stdio MCP server with:</p>

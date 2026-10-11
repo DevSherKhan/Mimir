@@ -117,12 +117,10 @@ Manual setup:
 # Claude Code
 claude mcp add mimir -- mimir mcp
 
-# Codex (~/.codex/config.toml)
-[mcp_servers.mimir]
-command = "mimir"
-args = ["mcp"]
+# Codex (preferred CLI helper)
+codex mcp add mimir -- mimir mcp
 
-# Cursor (~/.cursor/mcp.json)
+# Cursor: add to ~/.cursor/mcp.json
 {
   "mcpServers": {
     "mimir": {
@@ -132,6 +130,16 @@ args = ["mcp"]
   }
 }
 ```
+
+Codex can also be configured by editing `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.mimir]
+command = "mimir"
+args = ["mcp"]
+```
+
+After changing Codex config, start a new Codex session. Confirm with `codex mcp list`. `mimir` must be on your PATH.
 
 Or run the server yourself:
 

@@ -15,6 +15,7 @@ All notable changes to Mimir are documented here. This project follows [Semantic
 
 ### Changed
 
+- Docs: Codex MCP setup documents `codex mcp add mimir -- mimir mcp` plus `~/.codex/config.toml`.
 - Product focus is local-first: install, sync, query, local MCP, and `add-mcp`.
 - Removed cloud CLI commands from the supported path (`login`, `logout`, `upload`, `cloud-smoke`, `sync --upload`).
 - npm package now ships the local CLI/MCP runtime only.

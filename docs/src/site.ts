@@ -43,9 +43,9 @@ export const pages: PageMeta[] = [
   {
     path: "/integrations/mcp/",
     title: "MCP integration",
-    description: "Connect Mimir to Claude Code, Codex, Cursor, or another MCP client.",
+    description: "Connect Mimir to Claude Code, Codex, Cursor, or another MCP client with add-mcp or each tool's CLI.",
     section: "Integrations",
-    keywords: ["mcp", "add-mcp", "claude", "codex", "cursor", "stdio", "tool"],
+    keywords: ["mcp", "add-mcp", "claude", "codex", "cursor", "stdio", "config.toml", "tool"],
   },
   {
     path: "/cloud/dashboard/",
